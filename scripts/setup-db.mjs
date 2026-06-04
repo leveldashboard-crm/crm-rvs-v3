@@ -1,7 +1,24 @@
 import postgres from "postgres";
 import { hashSync } from "bcryptjs";
+import { readFileSync, existsSync } from "fs";
 
-const DB_URL = "postgresql://neondb_owner:npg_UQGjF5nzNs7M@ep-damp-cell-aqxu50ke-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+// Load .env.local manually
+try {
+  if (existsSync(".env.local")) {
+    const env = readFileSync(".env.local", "utf8");
+    for (const line of env.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIdx = trimmed.indexOf("=");
+      if (eqIdx === -1) continue;
+      const k = trimmed.slice(0, eqIdx).trim();
+      const v = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, "");
+      if (k && !process.env[k]) process.env[k] = v;
+    }
+  }
+} catch {}
+
+const DB_URL = process.env.DATABASE_URL || "postgres://postgres.tjqzcpddonqiunpcrmfo:LAdSwzGwqPcNuUZE@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x";
 
 const sql = postgres(DB_URL, { prepare: false });
 

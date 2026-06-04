@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Forbidden. Pass ?key=YOUR_ADMIN_SECRET_KEY" }, { status: 403 });
   }
 
-  const dbUrl = process.env.DATABASE_URL || "postgres://postgres.hbjrrfvuhjfexhvjpcun:5zanRUNJuQHUEJAX@aws-1-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x";
+  const dbUrl = process.env.DATABASE_URL || "postgres://postgres.tjqzcpddonqiunpcrmfo:LAdSwzGwqPcNuUZE@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x";
 
   if (!dbUrl) {
     return NextResponse.json({ error: "DATABASE_URL not configured" }, { status: 500 });

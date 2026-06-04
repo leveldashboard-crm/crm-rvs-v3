@@ -1,6 +1,26 @@
 const postgres = require('postgres');
 
-const sql = postgres('postgresql://neondb_owner:npg_MsYe2L7XJytd@ep-shiny-poetry-ankcgyrl-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require');
+// Support loading .env.local manually
+try {
+  const fs = require('fs');
+  const path = require('path');
+  const envPath = path.join(__dirname, '.env.local');
+  if (fs.existsSync(envPath)) {
+    const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const idx = trimmed.indexOf('=');
+      if (idx === -1) continue;
+      const key = trimmed.slice(0, idx).trim();
+      let val = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
+      if (key && !process.env[key]) process.env[key] = val;
+    }
+  }
+} catch (e) {}
+
+const DB_URL = process.env.DATABASE_URL || "postgres://postgres.tjqzcpddonqiunpcrmfo:LAdSwzGwqPcNuUZE@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x";
+const sql = postgres(DB_URL, { prepare: false });
 
 async function main() {
   console.log("Adding columns...");
