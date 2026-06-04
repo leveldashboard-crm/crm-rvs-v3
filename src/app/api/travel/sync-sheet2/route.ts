@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   let synced = 0;
   const errors: string[] = [];
 
-  const CHUNK = 20;
+  const CHUNK = 1000;
   const chunks: (typeof payloads)[] = [];
   for (let i = 0; i < payloads.length; i += CHUNK) chunks.push(payloads.slice(i, i + CHUNK));
 

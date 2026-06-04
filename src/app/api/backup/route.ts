@@ -69,44 +69,60 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, backed_up: 0, message: "No records to backup" });
     }
 
-    // ── Fire backup calls (non-blocking for secondary destinations) ─────────
-    let backed_up = 0;
+    // ── Fire backup calls in batches of 1000 ─────────────────────────────────
+    const BATCH = 1000;
+    const action = type === "registration" ? "batchBackupRegistration" : "batchBackupTravelRecord";
+    const arrayKey = type === "registration" ? "registrations" : "travelRecords";
     const errors: string[] = [];
-    const action = type === "registration" ? "backupRegistration" : "backupTravelRecord";
-    const recordKey = type === "registration" ? "registration" : "travelRecord";
+    let backed_up = 0;
 
-    for (const row of rows) {
-      // Primary GAS (fire-and-forget to not block)
-      callGasDirect(
-        { action, [recordKey]: row, sheetId, sheetName },
-        gasUrl
-      ).catch(e => console.error("[BACKUP] primary failed for row:", e));
+    const batches: (typeof rows)[] = [];
+    for (let i = 0; i < rows.length; i += BATCH) {
+      batches.push(rows.slice(i, i + BATCH));
+    }
+
+    // Process all batches
+    for (const batch of batches) {
+      // Primary GAS
+      try {
+        const res = await callGasDirect(
+          { action, [arrayKey]: batch, sheetId, sheetName },
+          gasUrl
+        );
+        if (res.ok) {
+          backed_up += batch.length;
+        } else {
+          errors.push(`Primary failed: ${res.error ?? "unknown error"}`);
+        }
+      } catch (e) {
+        errors.push(`Primary failed: ${String(e)}`);
+      }
 
       // Backup GAS Sheet 1
       if (backupGasUrl && backupSheet1) {
+        const batchWithFolder = batch.map(row => ({ ...row, folderId: backupFolder1 }));
         callGasDirect(
-          { action, [recordKey]: { ...row, folderId: backupFolder1 }, sheetId: backupSheet1, sheetName },
+          { action, [arrayKey]: batchWithFolder, sheetId: backupSheet1, sheetName },
           backupGasUrl
-        ).catch(e => errors.push(`Backup-1: ${String(e).slice(0, 100)}`));
+        ).catch(e => errors.push(`Backup-1 failed: ${String(e).slice(0, 100)}`));
       }
 
       // Backup GAS Sheet 2
       if (backupGasUrl && backupSheet2) {
+        const batchWithFolder = batch.map(row => ({ ...row, folderId: backupFolder2 }));
         callGasDirect(
-          { action, [recordKey]: { ...row, folderId: backupFolder2 }, sheetId: backupSheet2, sheetName },
+          { action, [arrayKey]: batchWithFolder, sheetId: backupSheet2, sheetName },
           backupGasUrl
-        ).catch(e => errors.push(`Backup-2: ${String(e).slice(0, 100)}`));
+        ).catch(e => errors.push(`Backup-2 failed: ${String(e).slice(0, 100)}`));
       }
-
-      backed_up++;
     }
 
     return NextResponse.json({
-      ok: true,
+      ok: errors.length === 0 || backed_up > 0,
       backed_up,
       type,
       errors: errors.slice(0, 10),
-      message: `Backup triggered for ${backed_up} ${type} records`,
+      message: `Batch backup processed ${backed_up} ${type} records`,
     });
   } catch (err: unknown) {
     console.error("[POST /api/backup]", err);

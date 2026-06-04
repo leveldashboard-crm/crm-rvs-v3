@@ -109,6 +109,15 @@ function handleRequest(e, method) {
       case "backupToTravelSheet2":
         response = executeWithLock(function() { return handleBackupToTravelSheet2(body); });
         break;
+      case "batchBackupTravelSheet2":
+        response = executeWithLock(function() { return handleBatchBackupTravelSheet2(body); });
+        break;
+      case "batchBackupRegistration":
+        response = executeWithLock(function() { return handleBatchBackupRegistration(body); });
+        break;
+      case "batchBackupTravelRecord":
+        response = executeWithLock(function() { return handleBatchBackupTravelRecord(body); });
+        break;
       default:
         return jsonResponse({ ok: false, error: "Unknown action provided: " + action }, 400);
     }
@@ -907,6 +916,382 @@ function handleDeleteFromTravelSheet2(body) {
   }
 
   return { ok: false, error: "Sr No not found in Sheet 2: " + srNo };
+}
+
+/**
+ * Bulk backups Travel Desk Print Sheet (Sheet 2) records
+ */
+function handleBatchBackupTravelSheet2(body) {
+  var sheetId   = body.sheetId;
+  var sheetName = body.sheetName || "Travel Desk Sheet 2";
+  var records   = body.travelRecords || [];
+
+  if (!sheetId) return { ok: false, error: "sheetId required" };
+  if (records.length === 0) return { ok: true, synced: 0 };
+
+  var ss = SpreadsheetApp.openById(sheetId);
+  var sheet = ss.getSheetByName(sheetName);
+
+  // Auto-create sheet if missing
+  if (!sheet) {
+    var createResult = handleCreateTravelSheet({ sheetId: sheetId, sheetName: sheetName });
+    if (!createResult.ok) return createResult;
+    sheet = ss.getSheetByName(sheetName);
+  }
+
+  var numCols = TRAVEL_SHEET2_COLUMNS.length;
+
+  // Ensure headers are present
+  var headerRow = sheet.getRange(1, 1, 1, numCols).getValues()[0];
+  if (!headerRow[0] || String(headerRow[0]).trim() === "") {
+    handleCreateTravelSheet({ sheetId: sheetId, sheetName: sheetName });
+  }
+
+  // Read all existing data from sheet
+  var lastRow = sheet.getLastRow();
+  var data = [];
+  if (lastRow > 0) {
+    data = sheet.getRange(1, 1, lastRow, numCols).getValues();
+  } else {
+    var headers = TRAVEL_SHEET2_COLUMNS.map(function(c) { return c.header; });
+    data.push(headers);
+  }
+
+  // Create a map of Responses Sr No (from column B, index 1) to its index in the 'data' array
+  var srNoToRowIdx = {};
+  for (var i = 1; i < data.length; i++) {
+    var sr = String(data[i][1] || "").trim();
+    if (sr) {
+      srNoToRowIdx[sr] = i;
+    }
+  }
+
+  var synced = 0;
+  for (var r = 0; r < records.length; r++) {
+    var record = records[r];
+    var srNo = String(record.responses_sr_no || "").trim();
+    if (!srNo) continue;
+
+    // Check if it exists
+    var targetIdx = srNoToRowIdx[srNo];
+    var isNew = (targetIdx === undefined);
+    var rowNum = isNew ? data.length : targetIdx;
+    
+    var rowData = TRAVEL_SHEET2_COLUMNS.map(function(col) {
+      if (col.field === "_row_num") {
+        return rowNum;
+      }
+      if (col.field === "_print_status") {
+        if (!isNew && targetIdx !== undefined) {
+          var printStatusColIdx = -1;
+          for (var c = 0; c < TRAVEL_SHEET2_COLUMNS.length; c++) {
+            if (TRAVEL_SHEET2_COLUMNS[c].field === "_print_status") {
+              printStatusColIdx = c;
+              break;
+            }
+          }
+          if (printStatusColIdx !== -1) {
+            return data[targetIdx][printStatusColIdx] || "";
+          }
+        }
+        return "";
+      }
+      var val = record[col.field];
+      if (val === null || val === undefined) return "";
+      return String(val);
+    });
+
+    if (isNew) {
+      data.push(rowData);
+      srNoToRowIdx[srNo] = data.length - 1;
+    } else {
+      data[targetIdx] = rowData;
+    }
+    synced++;
+  }
+
+  // Write all data back to the sheet
+  if (sheet.getMaxRows() < data.length) {
+    sheet.insertRowsAfter(sheet.getMaxRows(), data.length - sheet.getMaxRows());
+  }
+  sheet.getRange(1, 1, data.length, numCols).setValues(data);
+
+  // Alternating background colors
+  var backgrounds = [];
+  for (var i = 0; i < data.length; i++) {
+    if (i === 0) {
+      backgrounds.push(Array(numCols).fill("#1a73e8"));
+    } else {
+      var rowNum = i + 1;
+      var color = (rowNum % 2 === 0) ? "#f8f9fa" : "#ffffff";
+      backgrounds.push(Array(numCols).fill(color));
+    }
+  }
+  sheet.getRange(1, 1, data.length, numCols).setBackgrounds(backgrounds);
+  sheet.getRange(1, 1, 1, numCols).setFontColor("#ffffff").setFontWeight("bold");
+
+  return { ok: true, synced: synced, total: records.length };
+}
+
+/**
+ * Bulk backups Registration records
+ */
+function handleBatchBackupRegistration(body) {
+  var sheetId   = body.sheetId;
+  var sheetName = body.sheetName || CONFIG.DEFAULT_SHEET_NAME;
+  var records   = body.registrations || [];
+
+  if (!sheetId) return { ok: false, error: "sheetId required" };
+  if (records.length === 0) return { ok: true, synced: 0 };
+
+  var ss = SpreadsheetApp.openById(sheetId);
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+  }
+
+  var dummyMap = getRegistrationMap({});
+  var expectedHeaders = Object.keys(dummyMap);
+  ensureSheetHeadersDynamically(sheet, expectedHeaders);
+
+  var lastCol = sheet.getLastColumn();
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) { return String(h).trim(); });
+  var srCol = resolveSrNoColumnIndex(headers);
+  if (srCol === -1) return { ok: false, error: "'Sr No' column not found in sheet" };
+
+  var lastRow = sheet.getLastRow();
+  var data = [];
+  if (lastRow > 0) {
+    data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  } else {
+    data.push(headers);
+  }
+
+  var srNoToRowIdx = {};
+  for (var i = 1; i < data.length; i++) {
+    var sr = String(data[i][srCol - 1] || "").trim();
+    if (sr) {
+      srNoToRowIdx[sr] = i;
+    }
+  }
+
+  var synced = 0;
+  for (var r = 0; r < records.length; r++) {
+    var record = records[r];
+    var srNo = String(record.sr_no || "").trim();
+    if (!srNo) continue;
+
+    var recordMap = getRegistrationMap(record);
+
+    var targetIdx = srNoToRowIdx[srNo];
+    var isNew = (targetIdx === undefined);
+
+    var rowValues = [];
+    if (!isNew && targetIdx !== undefined) {
+      rowValues = data[targetIdx];
+    } else {
+      for (var c = 0; c < headers.length; c++) {
+        rowValues.push("");
+      }
+    }
+
+    for (var c = 0; c < headers.length; c++) {
+      var h = headers[c];
+      if (recordMap[h] !== undefined && recordMap[h] !== null) {
+        rowValues[c] = recordMap[h];
+      }
+    }
+
+    if (isNew) {
+      data.push(rowValues);
+      srNoToRowIdx[srNo] = data.length - 1;
+    } else {
+      data[targetIdx] = rowValues;
+    }
+    synced++;
+  }
+
+  if (sheet.getMaxRows() < data.length) {
+    sheet.insertRowsAfter(sheet.getMaxRows(), data.length - sheet.getMaxRows());
+  }
+  sheet.getRange(1, 1, data.length, headers.length).setValues(data);
+
+  return { ok: true, synced: synced, total: records.length };
+}
+
+/**
+ * Bulk backups Travel records
+ */
+function handleBatchBackupTravelRecord(body) {
+  var sheetId   = body.sheetId;
+  var sheetName = body.sheetName || CONFIG.DEFAULT_TRAVEL_SHEET;
+  var records   = body.travelRecords || [];
+
+  if (!sheetId) return { ok: false, error: "sheetId required" };
+  if (records.length === 0) return { ok: true, synced: 0 };
+
+  var ss = SpreadsheetApp.openById(sheetId);
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+  }
+
+  var dummyMap = getTravelMap({});
+  var expectedHeaders = Object.keys(dummyMap);
+  ensureSheetHeadersDynamically(sheet, expectedHeaders);
+
+  var lastCol = sheet.getLastColumn();
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) { return String(h).trim(); });
+  var srCol = resolveSrNoColumnIndex(headers);
+  if (srCol === -1) return { ok: false, error: "'Sr No' column not found in sheet" };
+
+  var lastRow = sheet.getLastRow();
+  var data = [];
+  if (lastRow > 0) {
+    data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  } else {
+    data.push(headers);
+  }
+
+  var srNoToRowIdx = {};
+  for (var i = 1; i < data.length; i++) {
+    var sr = String(data[i][srCol - 1] || "").trim();
+    if (sr) {
+      srNoToRowIdx[sr] = i;
+    }
+  }
+
+  var synced = 0;
+  for (var r = 0; r < records.length; r++) {
+    var record = records[r];
+    var srNo = String(record.responses_sr_no || "").trim();
+    if (!srNo) continue;
+
+    var recordMap = getTravelMap(record);
+
+    var targetIdx = srNoToRowIdx[srNo];
+    var isNew = (targetIdx === undefined);
+
+    var rowValues = [];
+    if (!isNew && targetIdx !== undefined) {
+      rowValues = data[targetIdx];
+    } else {
+      for (var c = 0; c < headers.length; c++) {
+        rowValues.push("");
+      }
+    }
+
+    for (var c = 0; c < headers.length; c++) {
+      var h = headers[c];
+      if (recordMap[h] !== undefined && recordMap[h] !== null) {
+        rowValues[c] = recordMap[h];
+      }
+    }
+
+    if (isNew) {
+      data.push(rowValues);
+      srNoToRowIdx[srNo] = data.length - 1;
+    } else {
+      data[targetIdx] = rowValues;
+    }
+    synced++;
+  }
+
+  if (sheet.getMaxRows() < data.length) {
+    sheet.insertRowsAfter(sheet.getMaxRows(), data.length - sheet.getMaxRows());
+  }
+  sheet.getRange(1, 1, data.length, headers.length).setValues(data);
+
+  return { ok: true, synced: synced, total: records.length };
+}
+
+function getRegistrationMap(record) {
+  return {
+    "Sr No": record.sr_no,
+    "Timestamp": record.timestamp_raw || new Date().toISOString(),
+    "Title": record.title,
+    "First Name": record.first_name,
+    "Last Name": record.last_name,
+    "Country Name": record.country_name,
+    "Passport Country": record.passport_country,
+    "Region": record.region,
+    "Participant Mobile/Whatsapp number (With ISD Code)": record.participant_mobile,
+    "Participant Email": record.participant_email,
+    "Company Name": record.company_name,
+    "Company Website": record.company_website,
+    "Designation of the Representative": record.designation,
+    "Passport Number": record.passport_number,
+    "Place of Issue": record.place_of_issue,
+    "Date of Expiry": record.date_of_expiry,
+    "Passport Front Copy": record.drive_passport_front_url || record.passport_front_copy,
+    "Passport Back Copy": record.drive_passport_back_url || record.passport_back_copy,
+    "Nature of Business": record.nature_of_business,
+    "Your Main Import Product - 1": record.main_import_product_1,
+    "Your Main Import Product - 2": record.main_import_product_2,
+    "Upload one proof of your Import (Please enter valid document Eg: - Bill of Lading)": record.drive_proof_url || record.proof_upload,
+    "Which of the below describes your products/services": record.products_services,
+    "Please upload your Business Card": record.drive_business_card_url || record.business_card_upload,
+    "POC": record.poc,
+    "Proof of Import": record.proof_import,
+    "Type of POI": record.type_of_poi,
+    "B/L Supplier Country": record.bl_supplier_country,
+    "B/L Buyer Country": record.bl_buyer_country,
+    "Status": record.status,
+    "Flight & Hotel": record.flight_hotel_code,
+    "Remarks": record.remarks,
+    "B/L Status": record.bl_status,
+    "BB Invitation letter status": record.bb_invitation_status,
+    "Dollar Business": record.dollar_business,
+    "Vujis": record.vujis
+  };
+}
+
+function getTravelMap(record) {
+  return {
+    "Sr No": record.responses_sr_no,
+    "Initial": record.initial,
+    "First Name": record.first_name,
+    "Last Name": record.last_name,
+    "Country Name": record.country_name,
+    "Country Code": record.country_code,
+    "Participant Mobile": record.participant_mobile,
+    "Sector": record.sector,
+    "Company Name": record.company_name,
+    "Poc": record.poc,
+    "Room No": record.room_no,
+    "Hotel Name": record.hotel_name,
+    "Arrival Flight No": record.arrival_flight_no,
+    "Arrival To": record.arrival_to,
+    "Arrival Time": record.arrival_time,
+    "Arrival Date": record.arrival_date,
+    "Departure Flight No": record.departure_flight_no,
+    "Departure From": record.departure_from,
+    "Departure Time": record.departure_time,
+    "Departure Date": record.departure_date,
+    "Check In Date": record.check_in_date,
+    "Check Out Date": record.check_out_date,
+    "Status": record.status,
+    "Reimbursement to be done or not": record.reimbursement,
+    "Reimbursement Amount Given": record.reimbursement_amount,
+    "Invoice Amount (INR)": record.invoice_amount,
+    "Invoice Amount (USD)": record.invoice_amount_usd,
+    "Invoice Amount (Local)": record.invoice_amount_local,
+    "Invoice Currency": record.invoice_currency,
+    "Ticket Received": record.ticket_received,
+    "Invoice Received": record.invoice_received,
+    "Visa Received": record.visa_received,
+    "Passport Copy": record.passport_copy_received,
+    "Voucher Received": record.voucher_received,
+    "Occupancy": record.room_units,
+    "Ticket File": record.ticket_url,
+    "Invoice File": record.invoice_url,
+    "Visa File": record.visa_url,
+    "Passport File": record.passport_url,
+    "Voucher File": record.voucher_url,
+    "Business Card File": record.business_card_url,
+    "B/L File": record.bl_url,
+    "BL": record.bl
+  };
 }
 
 // ─── UTILITY & HELPER FUNCTIONS ───────────────────────────────────────────────

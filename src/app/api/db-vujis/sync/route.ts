@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
+import { dbVujisRecords } from "@/db/schema";
 
 const HEADER_MAP: Record<string, string> = {
   sr_no:                             "sr_no",
@@ -199,66 +200,64 @@ export async function POST() {
       return NextResponse.json({ ok: true, synced: 0, message: "No valid rows (missing Sr No)" });
     }
 
-    // ── 5. Upsert each record individually with explicit typed params ────────
+    // ── 5. Batch upsert database records (optimized for speed) ───────────────
+    const BATCH = 1000;
     let synced = 0;
-    for (const r of records) {
-      try {
-        await db.execute(sql`
-          INSERT INTO db_vujis_records (
-            sr_no, company_name, country_name, region,
-            proof_of_import_y, proof_of_import_n,
-            vujis, import_value_vujis,
-            dollar_business, import_value_dollar,
-            both_db_vujis,
-            importing_from_india, importing_from_other_country,
-            main_import_product_1, main_import_product_2,
-            poc, reason, comment,
-            created_at, updated_at
-          ) VALUES (
-            ${r.sr_no},
-            ${r.company_name},
-            ${r.country_name},
-            ${r.region},
-            ${r.proof_of_import_y},
-            ${r.proof_of_import_n},
-            ${r.vujis},
-            ${r.import_value_vujis},
-            ${r.dollar_business},
-            ${r.import_value_dollar},
-            ${r.both_db_vujis},
-            ${r.importing_from_india},
-            ${r.importing_from_other_country},
-            ${r.main_import_product_1},
-            ${r.main_import_product_2},
-            ${r.poc},
-            ${r.reason},
-            ${r.comment},
-            NOW(), NOW()
-          )
-          ON CONFLICT (sr_no) DO UPDATE SET
-            company_name                 = EXCLUDED.company_name,
-            country_name                 = EXCLUDED.country_name,
-            region                       = EXCLUDED.region,
-            proof_of_import_y            = EXCLUDED.proof_of_import_y,
-            proof_of_import_n            = EXCLUDED.proof_of_import_n,
-            vujis                        = EXCLUDED.vujis,
-            import_value_vujis           = EXCLUDED.import_value_vujis,
-            dollar_business              = EXCLUDED.dollar_business,
-            import_value_dollar          = EXCLUDED.import_value_dollar,
-            both_db_vujis                = EXCLUDED.both_db_vujis,
-            importing_from_india         = EXCLUDED.importing_from_india,
-            importing_from_other_country = EXCLUDED.importing_from_other_country,
-            main_import_product_1        = EXCLUDED.main_import_product_1,
-            main_import_product_2        = EXCLUDED.main_import_product_2,
-            poc                          = EXCLUDED.poc,
-            reason                       = EXCLUDED.reason,
-            comment                      = EXCLUDED.comment,
-            updated_at                   = NOW()
-        `);
-        synced++;
-      } catch (rowErr) {
-        // Log the bad row but continue syncing the rest
-        console.error(`[db-vujis/sync] Row sr_no=${r.sr_no} failed:`, rowErr);
+
+    for (let i = 0; i < records.length; i += BATCH) {
+      const batch = records.slice(i, i + BATCH);
+
+      const validBatch = batch.map((r) => ({
+        srNo:                        r.sr_no,
+        companyName:                 r.company_name,
+        countryName:                 r.country_name,
+        region:                      r.region,
+        proofOfImportY:              r.proof_of_import_y,
+        proofOfImportN:              r.proof_of_import_n,
+        vujis:                       r.vujis,
+        importValueVujis:            r.import_value_vujis,
+        dollarBusiness:              r.dollar_business,
+        importValueDollar:           r.import_value_dollar,
+        bothDbVujis:                 r.both_db_vujis,
+        importingFromIndia:          r.importing_from_india,
+        importingFromOtherCountry:   r.importing_from_other_country,
+        mainImportProduct1:          r.main_import_product_1,
+        mainImportProduct2:          r.main_import_product_2,
+        poc:                         r.poc,
+        reason:                      r.reason,
+        comment:                     r.comment,
+        createdAt:                   new Date(),
+        updatedAt:                   new Date(),
+      }));
+
+      if (validBatch.length > 0) {
+        await db
+          .insert(dbVujisRecords)
+          .values(validBatch)
+          .onConflictDoUpdate({
+            target: dbVujisRecords.srNo,
+            set: {
+              companyName:                 sql`excluded.company_name`,
+              countryName:                 sql`excluded.country_name`,
+              region:                      sql`excluded.region`,
+              proofOfImportY:              sql`excluded.proof_of_import_y`,
+              proofOfImportN:              sql`excluded.proof_of_import_n`,
+              vujis:                       sql`excluded.vujis`,
+              importValueVujis:            sql`excluded.import_value_vujis`,
+              dollarBusiness:              sql`excluded.dollar_business`,
+              importValueDollar:           sql`excluded.import_value_dollar`,
+              bothDbVujis:                 sql`excluded.both_db_vujis`,
+              importingFromIndia:          sql`excluded.importing_from_india`,
+              importingFromOtherCountry:   sql`excluded.importing_from_other_country`,
+              mainImportProduct1:          sql`excluded.main_import_product_1`,
+              mainImportProduct2:          sql`excluded.main_import_product_2`,
+              poc:                         sql`excluded.poc`,
+              reason:                      sql`excluded.reason`,
+              comment:                     sql`excluded.comment`,
+              updatedAt:                   sql`excluded.updated_at`,
+            },
+          });
+        synced += validBatch.length;
       }
     }
 

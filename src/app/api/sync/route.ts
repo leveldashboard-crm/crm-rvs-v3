@@ -64,7 +64,7 @@ export async function POST(request: Request) {
     const mapped = rows.map(mapSheetRow);
 
     // ── 3. Batch upsert into database (by sr_no) ──────────────────────────────
-    const BATCH = 100;
+    const BATCH = 1000;
     let upserted = 0;
     let skipped  = 0; // rows that had no Sr No (blank/null) — cannot be upserted
 
