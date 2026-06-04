@@ -301,7 +301,7 @@ INSERT INTO "app_settings" ("id") VALUES (1) ON CONFLICT ("id") DO NOTHING;
 INSERT INTO "users" ("email", "password_hash", "name", "role")
 VALUES (
   'admin',
-  '$2a$12$K7thZh9FoqF.G4vE3c6i0eOKCEBFpD8C1oJbFb2VLPfXrk3vHDVFi',
+  '$2b$12$hY10.LHAecIj1EWwj151X.3crCdtrclqwi3vt4q1JSLVf70TY9Oam',
   'System Administrator',
   'admin'
 )
