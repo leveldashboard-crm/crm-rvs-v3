@@ -3,9 +3,10 @@ import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import {
   Save, RefreshCw, ExternalLink, CheckCircle2, AlertCircle,
-  Plus, Shield, Pencil, Trash2, Eye, EyeOff, X, ChevronDown, Zap, Link2, Wifi,
+  Plus, Shield, Pencil, Trash2, Eye, EyeOff, X, ChevronDown, Zap, Link2, Wifi, Download
 } from "lucide-react";
 import { pingGas } from "@/lib/gas-client";
+import * as XLSX from "xlsx";
 
 // ─── URL → ID extractors ─────────────────────────────────────────────────────
 function extractSheetId(raw: string): string {
@@ -166,6 +167,7 @@ export default function SettingsPage() {
   const [syncSheet2Msg, setSyncSheet2Msg] = useState<{ ok: boolean; message: string } | null>(null);
   const [runningBackup, setRunningBackup] = useState(false);
   const [backupMsg, setBackupMsg] = useState<{ ok: boolean; message: string } | null>(null);
+  const [exportingBackup, setExportingBackup] = useState(false);
 
   const handleCreateTravelSheet = async () => {
     if (!settings.gas_web_app_url || !settings.registration_sheet_id) {
@@ -192,7 +194,7 @@ export default function SettingsPage() {
         setSheetCreateMsg({ ok: false, message: data.error ?? "Failed to create sheet" });
         toast.error(data.error ?? "Failed to create sheet");
       }
-    } catch (e) {
+    } catch {
       toast.error("Request failed");
     } finally {
       setCreatingSheet(false);
@@ -215,6 +217,270 @@ export default function SettingsPage() {
       toast.error("Request failed");
     } finally {
       setSyncingSheet2(false);
+    }
+  };
+
+  interface BackupRegistrationRow {
+    id?: number;
+    sr_no?: number | null;
+    timestamp_raw?: string | null;
+    title?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    country_name?: string | null;
+    passport_country?: string | null;
+    region?: string | null;
+    participant_mobile?: string | null;
+    participant_email?: string | null;
+    company_name?: string | null;
+    company_website?: string | null;
+    designation?: string | null;
+    passport_number?: string | null;
+    place_of_issue?: string | null;
+    date_of_expiry?: string | null;
+    nature_of_business?: string | null;
+    main_import_product_1?: string | null;
+    main_import_product_2?: string | null;
+    proof_upload?: string | null;
+    products_services?: string | null;
+    business_card_upload?: string | null;
+    poc?: string | null;
+    proof_import?: string | null;
+    type_of_poi?: string | null;
+    bl_supplier_country?: string | null;
+    bl_buyer_country?: string | null;
+    status?: string | null;
+    flight_hotel_code?: string | null;
+    remarks?: string | null;
+    bl_status?: string | null;
+    bb_invitation_status?: string | null;
+    dollar_business?: string | null;
+    vujis?: string | null;
+    will_not_attend?: string | null;
+    is_active?: boolean | null;
+    drive_passport_front_url?: string | null;
+    drive_passport_back_url?: string | null;
+    drive_proof_url?: string | null;
+    drive_business_card_url?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+  }
+
+  interface BackupTravelRow {
+    id?: number;
+    registration_id?: number | null;
+    responses_sr_no?: string | null;
+    room_no?: string | null;
+    hotel_name?: string | null;
+    initial?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    country_name?: string | null;
+    country_code?: string | null;
+    participant_mobile?: string | null;
+    check_in_date?: string | null;
+    check_out_date?: string | null;
+    room_units?: string | number | null;
+    arrival_date?: string | null;
+    arrival_flight_no?: string | null;
+    arrival_to?: string | null;
+    arrival_time?: string | null;
+    departure_date?: string | null;
+    departure_flight_no?: string | null;
+    departure_from?: string | null;
+    departure_time?: string | null;
+    sector?: string | null;
+    company_name?: string | null;
+    poc?: string | null;
+    status?: string | null;
+    reimbursement?: string | null;
+    notes?: string | null;
+    invoice_amount?: string | null;
+    invoice_amount_usd?: string | null;
+    invoice_amount_local?: string | null;
+    invoice_currency?: string | null;
+    ticket_received?: string | null;
+    invoice_received?: string | null;
+    visa_received?: string | null;
+    passport_copy_received?: string | null;
+    voucher_received?: string | null;
+    reimbursement_amount?: string | null;
+    bl?: string | null;
+    bl_url?: string | null;
+    ticket_url?: string | null;
+    invoice_url?: string | null;
+    visa_url?: string | null;
+    passport_url?: string | null;
+    voucher_url?: string | null;
+    business_card_url?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+  }
+
+  interface BackupVujisRow {
+    id?: number;
+    sr_no?: number | null;
+    company_name?: string | null;
+    country_name?: string | null;
+    region?: string | null;
+    proof_of_import_y?: string | null;
+    proof_of_import_n?: string | null;
+    vujis?: string | null;
+    import_value_vujis?: string | null;
+    dollar_business?: string | null;
+    import_value_dollar?: string | null;
+    both_db_vujis?: string | null;
+    importing_from_india?: string | null;
+    importing_from_other_country?: string | null;
+    main_import_product_1?: string | null;
+    main_import_product_2?: string | null;
+    poc?: string | null;
+    reason?: string | null;
+    comment?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+  }
+
+  interface BackupLogRow {
+    id?: number;
+    user_id?: number | null;
+    user_name?: string | null;
+    user_role?: string | null;
+    action?: string;
+    entity_type?: string | null;
+    entity_id?: number | null;
+    status?: string | null;
+    ip_address?: string | null;
+    metadata?: Record<string, unknown> | null;
+    created_at?: string | null;
+  }
+
+  const downloadFullBackupXlsx = async () => {
+    setExportingBackup(true);
+    const tid = toast.loading("Fetching all CRM database tables and preparing Excel backup…");
+    try {
+      const [regsRes, travRes, logsRes, vujisRes] = await Promise.all([
+        fetch("/api/registrations?limit=5000").then(r => r.json()),
+        fetch("/api/travel?limit=5000").then(r => r.json()),
+        fetch("/api/operation-log?limit=5000").then(r => r.json()),
+        fetch("/api/db-vujis?limit=5000").then(r => r.json())
+      ]);
+
+      const regsData: BackupRegistrationRow[] = regsRes.rows || [];
+      const travData: BackupTravelRow[] = travRes.rows || [];
+      const logsData: BackupLogRow[] = logsRes.logs || [];
+      const vujisData: BackupVujisRow[] = vujisRes.rows || [];
+
+      const wb = XLSX.utils.book_new();
+
+      // --- Tab 1: Registrations ---
+      const regsAoa: (string | number | boolean | null | undefined)[][] = [
+        [
+          "ID", "Sr No", "Timestamp", "Title", "First Name", "Last Name", "Country Name",
+          "Passport Country", "Region", "Mobile", "Email", "Company Name", "Company Website",
+          "Designation", "Passport Number", "Place of Issue", "Date of Expiry",
+          "Nature of Business", "Main Import Product 1", "Main Import Product 2",
+          "Proof Upload Link", "Products Services", "Business Card Link", "POC",
+          "Proof of Import", "Type of POI", "B/L Supplier Country", "B/L Buyer Country",
+          "Status", "Flight & Hotel", "Remarks", "B/L Status", "BB Invitation Status",
+          "Dollar Business", "Vujis", "Will Not Attend", "Active", "Drive Passport Front",
+          "Drive Passport Back", "Drive Proof", "Drive Business Card", "Created At", "Updated At"
+        ]
+      ];
+      regsData.forEach((r: BackupRegistrationRow) => {
+        regsAoa.push([
+          r.id, r.sr_no, r.timestamp_raw, r.title, r.first_name, r.last_name, r.country_name,
+          r.passport_country, r.region, r.participant_mobile, r.participant_email, r.company_name, r.company_website,
+          r.designation, r.passport_number, r.place_of_issue, r.date_of_expiry,
+          r.nature_of_business, r.main_import_product_1, r.main_import_product_2,
+          r.proof_upload, r.products_services, r.business_card_upload, r.poc,
+          r.proof_import, r.type_of_poi, r.bl_supplier_country, r.bl_buyer_country,
+          r.status, r.flight_hotel_code, r.remarks, r.bl_status, r.bb_invitation_status,
+          r.dollar_business, r.vujis, r.will_not_attend, r.is_active, r.drive_passport_front_url,
+          r.drive_passport_back_url, r.drive_proof_url, r.drive_business_card_url, r.created_at, r.updated_at
+        ]);
+      });
+      const wsRegs = XLSX.utils.aoa_to_sheet(regsAoa);
+      XLSX.utils.book_append_sheet(wb, wsRegs, "Registrations");
+
+      // --- Tab 2: Travel Records ---
+      const travAoa: (string | number | boolean | null | undefined)[][] = [
+        [
+          "ID", "Registration ID", "Responses Sr No", "Room No", "Hotel Name", "Initial",
+          "First Name", "Last Name", "Country Name", "Country Code", "Mobile",
+          "Check In Date", "Check Out Date", "Occupancy", "Arrival Date", "Arrival Flight",
+          "Arrival To", "Arrival Time", "Departure Date", "Departure Flight", "Departure From",
+          "Departure Time", "Sector", "Company Name", "POC", "Status", "Reimbursement",
+          "Notes", "Invoice Amount", "Invoice USD", "Invoice Local", "Invoice Currency",
+          "Ticket Received", "Invoice Received", "Visa Received", "Passport Copy Received",
+          "Voucher Received", "Reimbursement Amount", "BL", "BL URL", "Ticket URL",
+          "Invoice URL", "Visa URL", "Passport URL", "Voucher URL", "Business Card URL",
+          "Created At", "Updated At"
+        ]
+      ];
+      travData.forEach((r: BackupTravelRow) => {
+        travAoa.push([
+          r.id, r.registration_id, r.responses_sr_no, r.room_no, r.hotel_name, r.initial,
+          r.first_name, r.last_name, r.country_name, r.country_code, r.participant_mobile,
+          r.check_in_date, r.check_out_date, r.room_units, r.arrival_date, r.arrival_flight_no,
+          r.arrival_to, r.arrival_time, r.departure_date, r.departure_flight_no, r.departure_from,
+          r.departure_time, r.sector, r.company_name, r.poc, r.status, r.reimbursement,
+          r.notes, r.invoice_amount, r.invoice_amount_usd, r.invoice_amount_local, r.invoice_currency,
+          r.ticket_received, r.invoice_received, r.visa_received, r.passport_copy_received,
+          r.voucher_received, r.reimbursement_amount, r.bl, r.bl_url, r.ticket_url,
+          r.invoice_url, r.visa_url, r.passport_url, r.voucher_url, r.business_card_url,
+          r.created_at, r.updated_at
+        ]);
+      });
+      const wsTrav = XLSX.utils.aoa_to_sheet(travAoa);
+      XLSX.utils.book_append_sheet(wb, wsTrav, "Travel Records");
+
+      // --- Tab 3: DB & Vujis Records ---
+      const vujisAoa: (string | number | boolean | null | undefined)[][] = [
+        [
+          "ID", "Sr No", "Company Name", "Country Name", "Region", "Proof Import Y",
+          "Proof Import N", "Vujis", "Import Value Vujis", "Dollar Business",
+          "Import Value Dollar", "Both DB Vujis", "Importing From India",
+          "Importing From Other Country", "Main Import Product 1", "Main Import Product 2",
+          "POC", "Reason", "Comment", "Created At", "Updated At"
+        ]
+      ];
+      vujisData.forEach((r: BackupVujisRow) => {
+        vujisAoa.push([
+          r.id, r.sr_no, r.company_name, r.country_name, r.region, r.proof_of_import_y,
+          r.proof_of_import_n, r.vujis, r.import_value_vujis, r.dollar_business,
+          r.import_value_dollar, r.both_db_vujis, r.importing_from_india,
+          r.importing_from_other_country, r.main_import_product_1, r.main_import_product_2,
+          r.poc, r.reason, r.comment, r.created_at, r.updated_at
+        ]);
+      });
+      const wsVujis = XLSX.utils.aoa_to_sheet(vujisAoa);
+      XLSX.utils.book_append_sheet(wb, wsVujis, "DB & Vujis");
+
+      // --- Tab 4: Operation Logs ---
+      const logsAoa: (string | number | boolean | null | undefined)[][] = [
+        [
+          "ID", "User ID", "User Name", "User Role", "Action", "Entity Type",
+          "Entity ID", "Status", "IP Address", "Metadata", "Created At"
+        ]
+      ];
+      logsData.forEach((l: BackupLogRow) => {
+        logsAoa.push([
+          l.id, l.user_id, l.user_name, l.user_role, l.action, l.entity_type,
+          l.entity_id, l.status, l.ip_address, JSON.stringify(l.metadata), l.created_at
+        ]);
+      });
+      const wsLogs = XLSX.utils.aoa_to_sheet(logsAoa);
+      XLSX.utils.book_append_sheet(wb, wsLogs, "Operation Logs");
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `CRM_Full_Database_Backup_${dateStr}.xlsx`);
+      toast.success("✅ Database backup spreadsheet downloaded!", { id: tid });
+    } catch (e: unknown) {
+      console.error(e);
+      toast.error(e instanceof Error ? `Failed: ${e.message}` : "Failed to compile backup", { id: tid });
+    } finally {
+      setExportingBackup(false);
     }
   };
 
@@ -1000,6 +1266,23 @@ export default function SettingsPage() {
                 {backupMsg.ok ? <CheckCircle2 size={13}/> : <AlertCircle size={13}/>} {backupMsg.message}
               </p>
             )}
+          </div>
+          {/* Local Database Backup */}
+          <div className="md:col-span-2 pt-4 border-t border-[var(--color-border)] mt-4">
+            <p className="text-[0.85rem] font-bold text-[var(--color-text-primary)] mb-1 flex items-center gap-1.5">
+              <Download size={14} className="text-[var(--color-accent)]" /> Local Database Backup (Spreadsheet Export)
+            </p>
+            <p className="text-[0.8rem] text-[var(--color-text-tertiary)] mb-3 leading-relaxed">
+              Export and download all database tables (Registrations, Travel Records, DB & Vujis, and Operation Logs) directly into a single multi-tab Excel spreadsheet for local storage.
+            </p>
+            <button
+              className="btn-primary py-2 px-5 font-semibold shadow-sm flex items-center gap-1.5"
+              onClick={downloadFullBackupXlsx}
+              disabled={exportingBackup}
+            >
+              <Download size={14} />
+              {exportingBackup ? "Generating Excel Backup…" : "Download Full Database Backup (.xlsx)"}
+            </button>
           </div>
         </div>
       </Section>
