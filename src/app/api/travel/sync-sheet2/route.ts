@@ -76,41 +76,39 @@ export async function POST(request: Request) {
   const chunks: (typeof payloads)[] = [];
   for (let i = 0; i < payloads.length; i += CHUNK) chunks.push(payloads.slice(i, i + CHUNK));
 
-  await Promise.all(
-    chunks.map(async (chunk) => {
-      try {
-        const res = await callGasDirect(
-          {
-            action:        "batchBackupTravelSheet2",
-            travelRecords: chunk,
-            sheetId,
-            sheetName:     "Travel Desk Sheet 2",
-          },
-          gasUrl!
-        ) as { ok: boolean; synced?: number; error?: string };
+  for (const chunk of chunks) {
+    try {
+      const res = await callGasDirect(
+        {
+          action:        "batchBackupTravelSheet2",
+          travelRecords: chunk,
+          sheetId,
+          sheetName:     "Travel Desk Sheet 2",
+        },
+        gasUrl!
+      ) as { ok: boolean; synced?: number; error?: string };
 
-        if (res.ok) {
-          synced += res.synced ?? chunk.length;
-        } else {
-          // Fall back: push individually within this chunk
-          for (const payload of chunk) {
-            try {
-              const r2 = await callGasDirect(
-                { action: "backupToTravelSheet2", travelRecord: payload, sheetId, sheetName: "Travel Desk Sheet 2" },
-                gasUrl!
-              ) as { ok: boolean; error?: string };
-              if (r2.ok) synced++;
-              else errors.push(`Sr ${payload.responses_sr_no}: ${r2.error}`);
-            } catch (e) {
-              errors.push(`Sr ${payload.responses_sr_no}: ${String(e)}`);
-            }
+      if (res.ok) {
+        synced += res.synced ?? chunk.length;
+      } else {
+        // Fall back: push individually within this chunk
+        for (const payload of chunk) {
+          try {
+            const r2 = await callGasDirect(
+              { action: "backupToTravelSheet2", travelRecord: payload, sheetId, sheetName: "Travel Desk Sheet 2" },
+              gasUrl!
+            ) as { ok: boolean; error?: string };
+            if (r2.ok) synced++;
+            else errors.push(`Sr ${payload.responses_sr_no}: ${r2.error}`);
+          } catch (e) {
+            errors.push(`Sr ${payload.responses_sr_no}: ${String(e)}`);
           }
         }
-      } catch (e) {
-        errors.push(`Chunk error: ${String(e)}`);
       }
-    })
-  );
+    } catch (e) {
+      errors.push(`Chunk error: ${String(e)}`);
+    }
+  }
 
   await writeAuditLog({
     userId, userName, userRole: "admin",

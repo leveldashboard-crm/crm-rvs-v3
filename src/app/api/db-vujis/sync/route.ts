@@ -118,7 +118,7 @@ export async function POST() {
       const res = await fetch(fetchUrl.toString(), {
         redirect: "follow",
         headers:  { "Cache-Control": "no-cache" },
-        signal:   AbortSignal.timeout(30_000),
+        signal:   AbortSignal.timeout(60_000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status} from GAS`);
       gasData = await res.json();
