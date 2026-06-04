@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     // ── 2. Map raw sheet rows → DB fields ─────────────────────────────────────
     const mapped = rows.map(mapSheetRow);
 
-    // ── 3. Batch upsert into Neon (by sr_no) ──────────────────────────────────
+    // ── 3. Batch upsert into database (by sr_no) ──────────────────────────────
     const BATCH = 100;
     let upserted = 0;
     let skipped  = 0; // rows that had no Sr No (blank/null) — cannot be upserted
@@ -71,60 +71,70 @@ export async function POST(request: Request) {
     for (let i = 0; i < mapped.length; i += BATCH) {
       const batch = mapped.slice(i, i + BATCH);
 
-      for (const row of batch) {
-        // Skip rows with no Sr No — they cannot be uniquely identified
-        if (!row.srNo) { skipped++; continue; }
+      const validBatch = batch
+        .filter((row) => {
+          if (!row.srNo) {
+            skipped++;
+            return false;
+          }
+          return true;
+        })
+        .map((row) => ({
+          ...row,
+          srNo: row.srNo as number,
+          updatedAt: new Date(),
+        }));
 
+      if (validBatch.length > 0) {
         await db
           .insert(registrations)
-          .values(row)
+          .values(validBatch)
           .onConflictDoUpdate({
             target: registrations.srNo,
             set: {
-              firstName:             row.firstName,
-              lastName:              row.lastName,
-              title:                 row.title,
-              countryName:           row.countryName,
-              passportCountry:       row.passportCountry,
-              region:                row.region,
-              participantMobile:     row.participantMobile,
-              participantEmail:      row.participantEmail,
-              companyName:           row.companyName,
-              companyWebsite:        row.companyWebsite,
-              designation:           row.designation,
-              passportNumber:        row.passportNumber,
-              placeOfIssue:          row.placeOfIssue,
-              dateOfExpiry:          row.dateOfExpiry,
-              natureOfBusiness:      row.natureOfBusiness,
-              mainImportProduct1:    row.mainImportProduct1,
-              mainImportProduct2:    row.mainImportProduct2,
-              productsServices:      row.productsServices,
-              poc:                   row.poc,
-              proofImport:           row.proofImport,
-              typeOfPoi:             row.typeOfPoi,
-              blSupplierCountry:     row.blSupplierCountry,
-              blBuyerCountry:        row.blBuyerCountry,
-              status:                row.status,
-              flightHotelCode:       row.flightHotelCode,
-              remarks:               row.remarks,
-              blStatus:              row.blStatus,
-              bbInvitationStatus:    row.bbInvitationStatus,
-              dollarBusiness:        row.dollarBusiness,
-              vujis:                 row.vujis,
-              willNotAttend:         row.willNotAttend,
-              passportFrontCopy:     row.passportFrontCopy,
-              passportBackCopy:      row.passportBackCopy,
-              proofUpload:           row.proofUpload,
-              businessCardUpload:    row.businessCardUpload,
-              drivePassportFrontUrl: row.drivePassportFrontUrl,
-              drivePassportBackUrl:  row.drivePassportBackUrl,
-              driveProofUrl:         row.driveProofUrl,
-              driveBusinessCardUrl:  row.driveBusinessCardUrl,
-              updatedAt:             new Date(),
+              firstName:             sql`excluded.first_name`,
+              lastName:              sql`excluded.last_name`,
+              title:                 sql`excluded.title`,
+              countryName:           sql`excluded.country_name`,
+              passportCountry:       sql`excluded.passport_country`,
+              region:                sql`excluded.region`,
+              participantMobile:     sql`excluded.participant_mobile`,
+              participantEmail:      sql`excluded.participant_email`,
+              companyName:           sql`excluded.company_name`,
+              companyWebsite:        sql`excluded.company_website`,
+              designation:           sql`excluded.designation`,
+              passportNumber:        sql`excluded.passport_number`,
+              placeOfIssue:          sql`excluded.place_of_issue`,
+              dateOfExpiry:          sql`excluded.date_of_expiry`,
+              natureOfBusiness:      sql`excluded.nature_of_business`,
+              mainImportProduct1:    sql`excluded.main_import_product_1`,
+              mainImportProduct2:    sql`excluded.main_import_product_2`,
+              productsServices:      sql`excluded.products_services`,
+              poc:                   sql`excluded.poc`,
+              proofImport:           sql`excluded.proof_import`,
+              typeOfPoi:             sql`excluded.type_of_poi`,
+              blSupplierCountry:     sql`excluded.bl_supplier_country`,
+              blBuyerCountry:        sql`excluded.bl_buyer_country`,
+              status:                sql`excluded.status`,
+              flightHotelCode:       sql`excluded.flight_hotel_code`,
+              remarks:               sql`excluded.remarks`,
+              blStatus:              sql`excluded.bl_status`,
+              bbInvitationStatus:    sql`excluded.bb_invitation_status`,
+              dollarBusiness:        sql`excluded.dollar_business`,
+              vujis:                 sql`excluded.vujis`,
+              willNotAttend:         sql`excluded.will_not_attend`,
+              passportFrontCopy:     sql`excluded.passport_front_copy`,
+              passportBackCopy:      sql`excluded.passport_back_copy`,
+              proofUpload:           sql`excluded.proof_upload`,
+              businessCardUpload:    sql`excluded.business_card_upload`,
+              drivePassportFrontUrl: sql`excluded.drive_passport_front_url`,
+              drivePassportBackUrl:  sql`excluded.drive_passport_back_url`,
+              driveProofUrl:         sql`excluded.drive_proof_url`,
+              driveBusinessCardUrl:  sql`excluded.drive_business_card_url`,
+              updatedAt:             sql`excluded.updated_at`,
             },
           });
-
-        upserted++;
+        upserted += validBatch.length;
       }
     }
 
