@@ -45,7 +45,7 @@ function useRegistrations() {
   const { data, error, mutate, isLoading } = useSWR<{ rows: RegistrationRow[]; total: number }>(
     "/api/registrations?limit=5000",
     fetcher,
-    { revalidateOnFocus: true, refreshInterval: 15000 } // Auto-refresh DB data every 15s
+    { revalidateOnFocus: false, refreshInterval: 60000 } // Auto-refresh every 60s
   );
   return { rows: data?.rows ?? [], total: data?.total ?? 0, isLoading, error, mutate };
 }
@@ -65,7 +65,7 @@ function useSheetPivot() {
   const { data, isLoading } = useSWR<SheetPivotData>(
     "/api/dashboard-pivot",
     fetcher,
-    { revalidateOnFocus: true, refreshInterval: 30000, errorRetryCount: 1 } // Auto-refresh Sheet pivot every 30s
+    { revalidateOnFocus: false, refreshInterval: 60000, errorRetryCount: 1 } // Auto-refresh Sheet pivot every 60s
   );
   return {
     ok:          data?.ok          ?? false,
@@ -84,7 +84,7 @@ function useDbVujis() {
   const { data, isLoading: vLoading } = useSWR<{ rows: Record<string, unknown>[]; total: number }>(
     "/api/db-vujis?limit=5000",
     fetcher,
-    { revalidateOnFocus: true, refreshInterval: 15000 } // Auto-refresh Vujis data every 15s
+    { revalidateOnFocus: false, refreshInterval: 60000 } // Auto-refresh Vujis data every 60s
   );
   const vujisRows = data?.rows ?? [];
 

@@ -41,12 +41,7 @@ export async function GET(): Promise<NextResponse<DashboardPivotResponse>> {
   if (!session) return NextResponse.json({ ...empty, error: "Unauthorized" }, { status: 401 });
 
   try {
-    try {
-      await db.execute(
-        sql`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS dashboard_pivot_sheet_name TEXT`
-      );
-    } catch { /* already exists */ }
-
+    // Use the already-cached settings query — no DDL per request
     const result = await db.execute(sql`
       SELECT gas_web_app_url, registration_sheet_id, dashboard_pivot_sheet_name
       FROM app_settings WHERE id = 1 LIMIT 1

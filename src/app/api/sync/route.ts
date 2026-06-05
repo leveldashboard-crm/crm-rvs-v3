@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { appSettings, registrations } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 // ─── POST /api/sync ── Fetch live data from GAS → upsert into Neon ────────────
 export async function POST(request: Request) {
@@ -12,13 +11,6 @@ export async function POST(request: Request) {
 
   const role = (session.user as { role?: string }).role ?? "staff";
   if (role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  // ── Auto-migrate: add will_not_attend column if not present ─────────────
-  try {
-    await db.execute(sql`
-      ALTER TABLE registrations ADD COLUMN IF NOT EXISTS will_not_attend TEXT
-    `);
-  } catch { /* column may already exist */ }
 
   // Load settings
   const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, 1)).limit(1);

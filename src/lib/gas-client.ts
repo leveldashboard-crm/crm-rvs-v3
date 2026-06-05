@@ -281,6 +281,38 @@ export async function backupToTravelSheet2(
   );
 }
 
+export async function batchBackupTravelRecords(
+  travelRecords: Record<string, unknown>[],
+  options: { sheetId?: string; sheetName?: string; gasUrl?: string } = {}
+) {
+  const gasUrl = options.gasUrl || GAS_URL;
+  return callGasDirect(
+    {
+      action:        "batchBackupTravelRecord",
+      travelRecords,
+      sheetId:      options.sheetId,
+      sheetName:    options.sheetName || "Travel Desk Records",
+    },
+    gasUrl
+  );
+}
+
+export async function batchBackupTravelSheet2(
+  travelRecords: Record<string, unknown>[],
+  options: { sheetId?: string; sheetName?: string; gasUrl?: string } = {}
+) {
+  const gasUrl = options.gasUrl || GAS_URL;
+  return callGasDirect(
+    {
+      action:        "batchBackupTravelSheet2",
+      travelRecords,
+      sheetId:      options.sheetId,
+      sheetName:    options.sheetName || "Travel Desk Sheet 2",
+    },
+    gasUrl
+  );
+}
+
 // ─── Ping GAS (CLIENT-SIDE) ───────────────────────────────────────────────
 export async function pingGas() {
   return callGasClient<{ message: string }>({ action: "ping" });

@@ -16,9 +16,9 @@ const FLD = ({ label, children }: { label: string; children: React.ReactNode }) 
   <div><label className="label">{label}</label>{children}</div>
 );
 
-const SEL = ({ label, value, onChange, opts }: { label: string; value: string; onChange: (v: string) => void; opts: string[] }) => (
+const SEL = ({ label, value, onChange, opts, disabled }: { label: string; value: string; onChange: (v: string) => void; opts: string[]; disabled?: boolean }) => (
   <FLD label={label}>
-    <select className="input" value={value} onChange={e => onChange(e.target.value)}>
+    <select className="input" value={value} onChange={e => onChange(e.target.value)} disabled={disabled}>
       {opts.map(o => <option key={o}>{o}</option>)}
     </select>
   </FLD>
@@ -171,6 +171,9 @@ export default function TravelDeskPage({ isAdmin = false, isSupervisor = false }
     }
     
     if (editId) {
+      if (!isAdmin && !isSupervisor) {
+        return toast.error("You do not have permission to edit travel records.");
+      }
       const p = window.prompt('You are about to overwrite data. Type "CONFIRM" to proceed:');
       if (p?.trim().toUpperCase() !== "CONFIRM") {
         return toast.error("Overwrite cancelled. You must type CONFIRM to save.");
@@ -292,8 +295,16 @@ export default function TravelDeskPage({ isAdmin = false, isSupervisor = false }
       {/* Form */}
       <div className="glass-card p-6 mb-8">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-[1.1rem] font-bold tracking-tight">{editId ? "Edit Travel Record" : "New Travel Record"}</h3>
-          {editId && <button className="btn-secondary py-1 px-3 text-xs" onClick={reset}>Cancel Edit</button>}
+          <h3 className="text-[1.1rem] font-bold tracking-tight">
+            {editId ? (
+              (!isAdmin && !isSupervisor) ? "View Travel Record (Read-Only)" : "Edit Travel Record"
+            ) : "New Travel Record"}
+          </h3>
+          {editId && (
+            <button className="btn-secondary py-1 px-3 text-xs" onClick={reset}>
+              {(!isAdmin && !isSupervisor) ? "Cancel View" : "Cancel Edit"}
+            </button>
+          )}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           <DelegateSearch regs={regs} value={form.registration_id} onSelect={onSelectDelegate} />
@@ -305,24 +316,30 @@ export default function TravelDeskPage({ isAdmin = false, isSupervisor = false }
               k.replace(/_/g," ").replace(/\b\w/g,m=>m.toUpperCase())
             }>
               <input className="input" value={form[k] as string}
-                readOnly={["responses_sr_no","initial","first_name","last_name","country_name","participant_mobile","company_name","sector","bl","poc"].includes(k)}
+                readOnly={["responses_sr_no","initial","first_name","last_name","country_name","participant_mobile","company_name","sector","bl","poc"].includes(k) || (editId !== null && !isAdmin && !isSupervisor)}
                 onChange={e => set(k, e.target.value as FormState[typeof k])} />
             </FLD>
           ))}
           <FLD label="Invoice Currency">
-            <input className="input" list="currencies" value={form.invoice_currency as string} onChange={e => set("invoice_currency", e.target.value)} placeholder="Search or select..." />
+            <input className="input" list="currencies" value={form.invoice_currency as string}
+              readOnly={editId !== null && !isAdmin && !isSupervisor}
+              onChange={e => set("invoice_currency", e.target.value)} placeholder="Search or select..." />
             <datalist id="currencies">
               {CURRENCIES.map(c => <option key={c} value={c} />)}
             </datalist>
           </FLD>
           {(["check_in_date","check_out_date","arrival_date","departure_date"] as (keyof FormState)[]).map(k => (
             <FLD key={k} label={k.replace(/_/g," ").replace(/\b\w/g,m=>m.toUpperCase())}>
-              <input type="date" className="input" value={form[k] as string} onChange={e => set(k, e.target.value)} />
+              <input type="date" className="input" value={form[k] as string}
+                disabled={editId !== null && !isAdmin && !isSupervisor}
+                onChange={e => set(k, e.target.value)} />
             </FLD>
           ))}
           {(["arrival_time","departure_time"] as (keyof FormState)[]).map(k => (
             <FLD key={k} label={k.replace(/_/g," ").replace(/\b\w/g,m=>m.toUpperCase())}>
-              <input type="time" className="input" value={form[k] as string} onChange={e => set(k, e.target.value)} />
+              <input type="time" className="input" value={form[k] as string}
+                disabled={editId !== null && !isAdmin && !isSupervisor}
+                onChange={e => set(k, e.target.value)} />
             </FLD>
           ))}
           <FLD label="Occupancy">
@@ -330,6 +347,7 @@ export default function TravelDeskPage({ isAdmin = false, isSupervisor = false }
               <select
                 className="input flex-1"
                 value={["0", "0.33", "0.5", "1"].includes(form.room_units as string) ? (form.room_units as string) : "custom"}
+                disabled={editId !== null && !isAdmin && !isSupervisor}
                 onChange={e => {
                   const val = e.target.value;
                   if (val === "custom") {
@@ -351,18 +369,22 @@ export default function TravelDeskPage({ isAdmin = false, isSupervisor = false }
                   className="input w-24 text-center animate-fade-in"
                   placeholder="Value"
                   value={form.room_units as string}
+                  readOnly={editId !== null && !isAdmin && !isSupervisor}
                   onChange={e => set("room_units", e.target.value)}
                 />
               )}
             </div>
           </FLD>
-          <SEL label="Status" value={form.status as string} onChange={v => set("status", v)} opts={["Confirmed","Can't Verify","Pending","Cancelled"]} />
-          <SEL label="Reimbursement to be done or not" value={form.reimbursement as string} onChange={v => set("reimbursement", v)} opts={["Yes","No"]} />
+          <SEL label="Status" value={form.status as string} onChange={v => set("status", v)} opts={["Confirmed","Can't Verify","Pending","Cancelled"]} disabled={editId !== null && !isAdmin && !isSupervisor} />
+          <SEL label="Reimbursement to be done or not" value={form.reimbursement as string} onChange={v => set("reimbursement", v)} opts={["Yes","No"]} disabled={editId !== null && !isAdmin && !isSupervisor} />
           <FLD label="Reimbursement Amount Given">
-            <input className="input" value={form.reimbursement_amount as string} onChange={e => set("reimbursement_amount", e.target.value)} placeholder="Enter amount" />
+            <input className="input" value={form.reimbursement_amount as string}
+              readOnly={editId !== null && !isAdmin && !isSupervisor}
+              onChange={e => set("reimbursement_amount", e.target.value)} placeholder="Enter amount" />
             <div className="flex items-center gap-2 mt-2">
               <button 
                 className="btn-secondary py-1 text-xs"
+                disabled={editId !== null && !isAdmin && !isSupervisor}
                 onClick={() => {
                   if(!form.reimbursement_amount) return toast.error("Enter amount first");
                   const p = window.prompt(`Type "ok" to confirm amount: ${form.reimbursement_amount}`);
@@ -374,11 +396,11 @@ export default function TravelDeskPage({ isAdmin = false, isSupervisor = false }
               {form.reimbursement_amount_verified && <span className="text-xs text-[var(--color-success)] font-bold flex items-center gap-1"><CheckCircle size={12}/> Verified</span>}
             </div>
           </FLD>
-          <SEL label="Ticket Received" value={form.ticket_received as string} onChange={v => set("ticket_received", v)} opts={["Yes","No"]} />
-          <SEL label="Invoice Received" value={form.invoice_received as string} onChange={v => set("invoice_received", v)} opts={["Yes","No"]} />
-          <SEL label="Visa Received" value={form.visa_received as string} onChange={v => set("visa_received", v)} opts={["Yes","No"]} />
-          <SEL label="Passport Copy" value={form.passport_copy_received as string} onChange={v => set("passport_copy_received", v)} opts={["Yes","No"]} />
-          <SEL label="Voucher Received" value={form.voucher_received as string} onChange={v => set("voucher_received", v)} opts={["Yes","No"]} />
+          <SEL label="Ticket Received" value={form.ticket_received as string} onChange={v => set("ticket_received", v)} opts={["Yes","No"]} disabled={editId !== null && !isAdmin && !isSupervisor} />
+          <SEL label="Invoice Received" value={form.invoice_received as string} onChange={v => set("invoice_received", v)} opts={["Yes","No"]} disabled={editId !== null && !isAdmin && !isSupervisor} />
+          <SEL label="Visa Received" value={form.visa_received as string} onChange={v => set("visa_received", v)} opts={["Yes","No"]} disabled={editId !== null && !isAdmin && !isSupervisor} />
+          <SEL label="Passport Copy" value={form.passport_copy_received as string} onChange={v => set("passport_copy_received", v)} opts={["Yes","No"]} disabled={editId !== null && !isAdmin && !isSupervisor} />
+          <SEL label="Voucher Received" value={form.voucher_received as string} onChange={v => set("voucher_received", v)} opts={["Yes","No"]} disabled={editId !== null && !isAdmin && !isSupervisor} />
           {(["ticket","invoice","visa","passport","voucher","business_card","bl"] as (keyof FileMap)[]).map(k => {
             const existingUrl = form[`${k}_url` as keyof FormState] as string;
             return (
@@ -389,13 +411,17 @@ export default function TravelDeskPage({ isAdmin = false, isSupervisor = false }
                     <a href={existingUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[0.8rem] text-[var(--color-primary)] font-semibold hover:underline truncate">
                        <Download size={14}/> Download Fetched File
                     </a>
-                    <label className="btn-secondary py-1 px-2 text-[0.7rem] cursor-pointer whitespace-nowrap m-0">
-                      Upload New
-                      <input type="file" className="hidden" onChange={e => setFiles(f => ({ ...f, [k]: e.target.files?.[0] }))} />
-                    </label>
+                    {(!editId || isAdmin || isSupervisor) && (
+                      <label className="btn-secondary py-1 px-2 text-[0.7rem] cursor-pointer whitespace-nowrap m-0">
+                        Upload New
+                        <input type="file" className="hidden" onChange={e => setFiles(f => ({ ...f, [k]: e.target.files?.[0] }))} />
+                      </label>
+                    )}
                   </div>
                 ) : (
-                  <input type="file" className="input text-sm" style={{ padding: "0.375rem" }} onChange={e => setFiles(f => ({ ...f, [k]: e.target.files?.[0] }))} />
+                  <input type="file" className="input text-sm" style={{ padding: "0.375rem" }}
+                    disabled={editId !== null && !isAdmin && !isSupervisor}
+                    onChange={e => setFiles(f => ({ ...f, [k]: e.target.files?.[0] }))} />
                 )}
                 {files[k] && <div className="text-xs text-[var(--color-success)] font-medium">New file selected: {files[k]!.name}</div>}
               </div>
@@ -404,10 +430,12 @@ export default function TravelDeskPage({ isAdmin = false, isSupervisor = false }
           })}
           <div className="col-span-full">
             <label className="label">Remarks / Notes</label>
-            <textarea className="input w-full p-3 bg-[var(--color-bg-primary)] border-[var(--color-border)] focus:bg-[var(--color-surface)]" rows={3} value={form.notes} onChange={e => set("notes", e.target.value)} style={{ resize: "vertical" }} />
+            <textarea className="input w-full p-3 bg-[var(--color-bg-primary)] border-[var(--color-border)] focus:bg-[var(--color-surface)]" rows={3}
+              readOnly={editId !== null && !isAdmin && !isSupervisor}
+              value={form.notes} onChange={e => set("notes", e.target.value)} style={{ resize: "vertical" }} />
           </div>
         </div>
-        {isAdmin || isSupervisor ? (
+        {(isAdmin || isSupervisor || !editId) ? (
           <div className="mt-5">
             <button className="btn-primary py-2.5 px-6 shadow-sm font-semibold" onClick={save} disabled={saving}>
               {saving ? "Saving…" : (editId ? "Update Record" : "Save Travel Record")}

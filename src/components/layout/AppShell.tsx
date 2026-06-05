@@ -270,14 +270,7 @@ export default function AppShell({ session, children }: Props) {
         </main>
       </div>
 
-      <style jsx global>{`
-        @media (max-width: 768px) {
-          aside { transform: translateX(-100%) !important; }
-          aside.open { transform: translateX(0) !important; }
-          div[style*="marginLeft: 252"] { margin-left: 0 !important; }
-          .mobile-topbar { display: flex !important; }
-        }
-      `}</style>
+
     </div>
   );
 }

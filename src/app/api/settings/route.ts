@@ -3,8 +3,10 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
 
-/** Ensure all schema columns exist (idempotent) */
+// Run once per server process — subsequent calls are a no-op
+let _settingsMigrated = false;
 async function ensureSettingsSchema() {
+  if (_settingsMigrated) return;
   const cols = [
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS db_vujis_sheet_name TEXT DEFAULT 'DB & vujis'`,
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS session_timeout_minutes INTEGER DEFAULT 30`,
@@ -18,6 +20,7 @@ async function ensureSettingsSchema() {
   for (const stmt of cols) {
     try { await db.execute(sql.raw(stmt)); } catch { /* already exists */ }
   }
+  _settingsMigrated = true;
 }
 
 // ─── GET /api/settings ────────────────────────────────────────────────────────

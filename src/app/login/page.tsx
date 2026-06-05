@@ -135,7 +135,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center mt-6 text-[0.75rem] font-medium text-[var(--color-text-tertiary)] tracking-wide">
-          DelegateConnect Enterprise · Powered by Neon + Next.js
+          DelegateConnect Enterprise · Powered by Supabase + Next.js
         </p>
       </div>
     </div>

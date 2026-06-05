@@ -11,7 +11,7 @@ const globalForDb = globalThis as unknown as {
 const currentSchemaKeys = Object.keys(schema).join(",");
 
 function getInstance() {
-  const url = process.env.DATABASE_URL || "postgres://postgres.tjqzcpddonqiunpcrmfo:LAdSwzGwqPcNuUZE@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x";
+  const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL environment variable is not set");
 
   // Re-create if schema changed (to fix HMR keeping old schema definitions)

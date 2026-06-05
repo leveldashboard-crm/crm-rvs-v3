@@ -56,6 +56,24 @@ export async function POST(request: Request) {
   const colConfig = DOC_TYPE_COLUMNS[docType];
   if (!colConfig) return NextResponse.json({ error: `Unknown docType: ${docType}` }, { status: 400 });
 
+  // ── File validation ───────────────────────────────────────────────────────
+  const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+  const ALLOWED_MIME_TYPES = new Set([
+    "image/jpeg", "image/png", "image/webp", "image/gif",
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+  ]);
+
+  if (file.size > MAX_FILE_SIZE) {
+    return NextResponse.json({ error: `File too large (max 20 MB). Your file: ${(file.size / 1024 / 1024).toFixed(1)} MB` }, { status: 413 });
+  }
+
+  const mimeType = file.type || "application/octet-stream";
+  if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+    return NextResponse.json({ error: `File type "${mimeType}" not allowed. Accepted: images (JPEG/PNG/WebP), PDF, Excel.` }, { status: 415 });
+  }
+
   try {
     // ── 1. Convert file to base64 ─────────────────────────────────────────────
     const arrayBuffer = await file.arrayBuffer();

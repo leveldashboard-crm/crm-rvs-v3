@@ -8,6 +8,7 @@ import {
   backupToTravelSheet2,
   deleteSheetRecord,
   deleteDriveFolder,
+  callGasDirect,
 } from "@/lib/gas-client";
 import { writeAuditLog } from "@/lib/audit";
 import type { Session } from "next-auth";
@@ -84,8 +85,6 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAllowedToEdit(session))
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   try {
     const body = await request.json();
@@ -93,6 +92,14 @@ export async function POST(request: Request) {
       record?:  Record<string, unknown>;
       records?: Record<string, unknown>[];
     };
+
+    if (records && records.length > 0) {
+      // Bulk import is restricted to admin only
+      const role = (session.user as { role?: string }).role ?? "staff";
+      if (role !== "admin") {
+        return NextResponse.json({ error: "Forbidden: Admin required for bulk import" }, { status: 403 });
+      }
+    }
 
     // Load settings ONCE
     const [settings] = await db
@@ -124,7 +131,8 @@ export async function POST(request: Request) {
       const mapped   = records.map(mapTravelRecord);
       const inserted = await db.insert(travelRecords).values(mapped).returning();
 
-      inserted.forEach((r) => syncToSheet(r, settings).catch(console.error));
+      // Batch sync in background — fast, optimized, and does not block the response
+      syncBatchToSheet(inserted, settings).catch(console.error);
 
       await writeAuditLog({
         userId:     getUserId(session),
@@ -321,6 +329,75 @@ async function syncToSheet(
     console.error("[syncToSheet] Sheet 2 error:", (res2 as Record<string, unknown>).error);
   } else {
     console.log("[syncToSheet] ✅ Sheet 2 updated.");
+  }
+}
+
+// ─── GAS Batch Sync Helper ───────────────────────────────────────────────────
+async function syncBatchToSheet(
+  records: (typeof travelRecords.$inferSelect)[],
+  settings: typeof appSettings.$inferSelect | undefined
+) {
+  const gasUrl  = settings?.gasWebAppUrl  || process.env.NEXT_PUBLIC_GAS_WEB_APP_URL;
+  const sheetId = settings?.registrationSheetId ?? undefined;
+
+  if (!gasUrl) {
+    console.warn("[syncBatchToSheet] Skipped — no GAS URL set.");
+    return;
+  }
+
+  const payloads = records.map(r => drizzleToSnake(r as unknown as Record<string, unknown>));
+  const CHUNK = 1000;
+
+  // Sync to Sheet 1
+  for (let i = 0; i < payloads.length; i += CHUNK) {
+    const chunk = payloads.slice(i, i + CHUNK);
+    try {
+      const res = await callGasDirect({
+        action: "batchBackupTravelRecord",
+        travelRecords: chunk,
+        sheetId,
+        sheetName: settings?.travelSheetName || "Travel Desk Records",
+      }, gasUrl);
+      if (!res.ok) {
+        console.error("[syncBatchToSheet] Sheet 1 batch sync failed:", res.error);
+        // Fallback to individual
+        for (const p of chunk) {
+          await backupTravelRecordToSheet(p, {
+            sheetId,
+            sheetName: settings?.travelSheetName || "Travel Desk Records",
+            gasUrl,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("[syncBatchToSheet] Sheet 1 batch error:", e);
+    }
+  }
+
+  // Sync to Sheet 2
+  for (let i = 0; i < payloads.length; i += CHUNK) {
+    const chunk = payloads.slice(i, i + CHUNK);
+    try {
+      const res = await callGasDirect({
+        action: "batchBackupTravelSheet2",
+        travelRecords: chunk,
+        sheetId,
+        sheetName: "Travel Desk Sheet 2",
+      }, gasUrl);
+      if (!res.ok) {
+        console.error("[syncBatchToSheet] Sheet 2 batch sync failed:", res.error);
+        // Fallback to individual
+        for (const p of chunk) {
+          await backupToTravelSheet2(p, {
+            sheetId,
+            sheetName: "Travel Desk Sheet 2",
+            gasUrl,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("[syncBatchToSheet] Sheet 2 batch error:", e);
+    }
   }
 }
 

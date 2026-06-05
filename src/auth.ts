@@ -7,7 +7,7 @@ import { compare } from "bcryptjs";
 import { writeAuditLog } from "@/lib/audit";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  secret: process.env.AUTH_SECRET || "delegate_connect_new_secret_to_invalidate_old_cookies_123",
+  secret: process.env.AUTH_SECRET ?? (() => { throw new Error("AUTH_SECRET env variable is required"); })(),
 
   // Required for Vercel / custom domains — allows NextAuth to trust the
   // host header so NEXTAUTH_URL does NOT need to be set on production.

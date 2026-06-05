@@ -13,14 +13,11 @@ export interface AuditParams {
   metadata?: Record<string, unknown>;
 }
 
-/**
- * Enterprise-grade audit logger.
- * Silently auto-migrates missing columns on the fly.
- * NEVER throws — audit failure must never break the main flow.
- */
-export async function writeAuditLog(params: AuditParams): Promise<void> {
+// Run once per process start — guards are cheap after the first call
+let _auditMigrated = false;
+async function ensureAuditSchema() {
+  if (_auditMigrated) return;
   try {
-    // Auto-migrate extra columns (idempotent)
     await db.execute(sql`
       ALTER TABLE audit_log
         ADD COLUMN IF NOT EXISTS user_name  TEXT,
@@ -28,6 +25,22 @@ export async function writeAuditLog(params: AuditParams): Promise<void> {
         ADD COLUMN IF NOT EXISTS status     TEXT DEFAULT 'success',
         ADD COLUMN IF NOT EXISTS ip_address TEXT
     `);
+    _auditMigrated = true;
+  } catch {
+    // Non-fatal — column may already exist
+    _auditMigrated = true;
+  }
+}
+
+let _opPermMigrated = false;
+
+/**
+ * Enterprise-grade audit logger.
+ * NEVER throws — audit failure must never break the main flow.
+ */
+export async function writeAuditLog(params: AuditParams): Promise<void> {
+  try {
+    await ensureAuditSchema();
 
     await db.execute(sql`
       INSERT INTO audit_log
@@ -51,23 +64,30 @@ export async function writeAuditLog(params: AuditParams): Promise<void> {
 
 /**
  * Auto-creates the operation_permissions table if it doesn't exist.
+ * Uses a process-level flag so the DDL only runs once per server restart.
  */
 export async function ensureOpPermTable(): Promise<void> {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS operation_permissions (
-      id               SERIAL PRIMARY KEY,
-      requested_by     INTEGER,
-      requested_by_name TEXT,
-      operation        TEXT NOT NULL,
-      description      TEXT,
-      status           TEXT DEFAULT 'pending',
-      approved_by      INTEGER,
-      approved_by_name  TEXT,
-      confirmed_at     TIMESTAMP,
-      expires_at       TIMESTAMP,
-      metadata         JSONB,
-      created_at       TIMESTAMP DEFAULT NOW() NOT NULL,
-      updated_at       TIMESTAMP DEFAULT NOW() NOT NULL
-    )
-  `);
+  if (_opPermMigrated) return;
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS operation_permissions (
+        id                SERIAL PRIMARY KEY,
+        requested_by      INTEGER,
+        requested_by_name TEXT,
+        operation         TEXT NOT NULL,
+        description       TEXT,
+        status            TEXT DEFAULT 'pending',
+        approved_by       INTEGER,
+        approved_by_name  TEXT,
+        confirmed_at      TIMESTAMP,
+        expires_at        TIMESTAMP,
+        metadata          JSONB,
+        created_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at        TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    _opPermMigrated = true;
+  } catch {
+    _opPermMigrated = true;
+  }
 }
