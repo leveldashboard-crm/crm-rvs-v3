@@ -370,14 +370,117 @@ CREATE INDEX IF NOT EXISTS idx_comm_status      ON communications_log (status);
 CREATE INDEX IF NOT EXISTS idx_att_session      ON session_attendance (session_id);
 CREATE INDEX IF NOT EXISTS idx_att_registration ON session_attendance (registration_id);
 
--- ─── 13. SEED INITIALIZATION ───
+-- ─── 13. DYNAMIC COLUMN UPGRADES & MIGRATIONS (ENTERPRISE MIGRATION FALLBACK) ───
+-- Safely appends new columns to existing tables if the database was deployed using an older version.
+DO $$
+BEGIN
+  -- 1. Users Table Columns
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='last_login_at') THEN
+    ALTER TABLE users ADD COLUMN last_login_at TIMESTAMP;
+  END IF;
+
+  -- 2. Registrations Table Columns
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='registrations' AND column_name='drive_passport_front_url') THEN
+    ALTER TABLE registrations ADD COLUMN drive_passport_front_url TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='registrations' AND column_name='drive_passport_back_url') THEN
+    ALTER TABLE registrations ADD COLUMN drive_passport_back_url TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='registrations' AND column_name='drive_proof_url') THEN
+    ALTER TABLE registrations ADD COLUMN drive_proof_url TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='registrations' AND column_name='drive_business_card_url') THEN
+    ALTER TABLE registrations ADD COLUMN drive_business_card_url TEXT;
+  END IF;
+
+  -- 3. Travel Records Table Columns
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='travel_records' AND column_name='bl_url') THEN
+    ALTER TABLE travel_records ADD COLUMN bl_url TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='travel_records' AND column_name='ticket_url') THEN
+    ALTER TABLE travel_records ADD COLUMN ticket_url TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='travel_records' AND column_name='invoice_url') THEN
+    ALTER TABLE travel_records ADD COLUMN invoice_url TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='travel_records' AND column_name='visa_url') THEN
+    ALTER TABLE travel_records ADD COLUMN visa_url TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='travel_records' AND column_name='passport_url') THEN
+    ALTER TABLE travel_records ADD COLUMN passport_url TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='travel_records' AND column_name='voucher_url') THEN
+    ALTER TABLE travel_records ADD COLUMN voucher_url TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='travel_records' AND column_name='business_card_url') THEN
+    ALTER TABLE travel_records ADD COLUMN business_card_url TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='travel_records' AND column_name='bl_drive_id') THEN
+    ALTER TABLE travel_records ADD COLUMN bl_drive_id TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='travel_records' AND column_name='ticket_drive_id') THEN
+    ALTER TABLE travel_records ADD COLUMN ticket_drive_id TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='travel_records' AND column_name='invoice_drive_id') THEN
+    ALTER TABLE travel_records ADD COLUMN invoice_drive_id TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='travel_records' AND column_name='visa_drive_id') THEN
+    ALTER TABLE travel_records ADD COLUMN visa_drive_id TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='travel_records' AND column_name='passport_drive_id') THEN
+    ALTER TABLE travel_records ADD COLUMN passport_drive_id TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='travel_records' AND column_name='voucher_drive_id') THEN
+    ALTER TABLE travel_records ADD COLUMN voucher_drive_id TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='travel_records' AND column_name='business_card_drive_id') THEN
+    ALTER TABLE travel_records ADD COLUMN business_card_drive_id TEXT;
+  END IF;
+
+  -- 4. App Settings Table Columns
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='app_settings' AND column_name='session_timeout_minutes') THEN
+    ALTER TABLE app_settings ADD COLUMN session_timeout_minutes INTEGER DEFAULT 30;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='app_settings' AND column_name='backup_gas_web_app_url') THEN
+    ALTER TABLE app_settings ADD COLUMN backup_gas_web_app_url TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='app_settings' AND column_name='backup_sheet_id') THEN
+    ALTER TABLE app_settings ADD COLUMN backup_sheet_id TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='app_settings' AND column_name='backup_folder_id') THEN
+    ALTER TABLE app_settings ADD COLUMN backup_folder_id TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='app_settings' AND column_name='backup_sheet_id_2') THEN
+    ALTER TABLE app_settings ADD COLUMN backup_sheet_id_2 TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='app_settings' AND column_name='backup_folder_id_2') THEN
+    ALTER TABLE app_settings ADD COLUMN backup_folder_id_2 TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='app_settings' AND column_name='dashboard_pivot_sheet_name') THEN
+    ALTER TABLE app_settings ADD COLUMN dashboard_pivot_sheet_name TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='app_settings' AND column_name='mailer_web_app_url') THEN
+    ALTER TABLE app_settings ADD COLUMN mailer_web_app_url TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='app_settings' AND column_name='mailer_shared_secret') THEN
+    ALTER TABLE app_settings ADD COLUMN mailer_shared_secret TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='app_settings' AND column_name='mailer_mode') THEN
+    ALTER TABLE app_settings ADD COLUMN mailer_mode TEXT DEFAULT 'api';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='app_settings' AND column_name='mailer_enabled') THEN
+    ALTER TABLE app_settings ADD COLUMN mailer_enabled BOOLEAN DEFAULT FALSE;
+  END IF;
+END $$;
+
+-- ─── 14. SEED INITIALIZATION ───
 INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
 -- Seed Default Admin Account (admin / buildcon2026)
 INSERT INTO users (email, password_hash, name, role)
 VALUES (
   'admin',
-  '$2a$12$TFLV90U1JcL4DU4iaw0yA.o.9CBQXTI1SDpbgDwpKb5lNzyQfScqi',
+  '$2b$12$TFLV90U1JcL4DU4iaw0yA.o.9CBQXTI1SDpbgDwpKb5lNzyQfScqi',
   'System Administrator',
   'admin'
 )
@@ -386,7 +489,7 @@ ON CONFLICT (email) DO UPDATE
       name          = 'System Administrator',
       role          = 'admin';
 
--- ─── 14. EXPLICITLY DISABLE ROW LEVEL SECURITY (RLS) FOR SUPABASE ───
+-- ─── 15. EXPLICITLY DISABLE ROW LEVEL SECURITY (RLS) FOR SUPABASE ───
 -- This ensures the Next.js CRM can freely interact with the database tables.
 ALTER TABLE users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE registrations DISABLE ROW LEVEL SECURITY;
