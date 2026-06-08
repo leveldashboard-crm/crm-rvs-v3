@@ -30,20 +30,23 @@ function LoginForm() {
     e.preventDefault();
     setIsPending(true);
     try {
+      console.log("[Login] Attempting sign in for:", email);
       const res = await signIn("credentials", {
         email,
         password,
         redirect: false,
       });
+      console.log("[Login] NextAuth response:", res);
       if (res?.error) {
-        toast.error("Invalid credentials. Please try again.");
+        toast.error(`Login failed: ${res.error}`);
       } else {
         toast.success("Login successful!");
         router.push(callbackUrl);
         router.refresh();
       }
-    } catch {
-      toast.error("Something went wrong. Please try again later.");
+    } catch (err: any) {
+      console.error("[Login] Client-side error:", err);
+      toast.error(`Something went wrong: ${err?.message || err}`);
     } finally {
       setIsPending(false);
     }
