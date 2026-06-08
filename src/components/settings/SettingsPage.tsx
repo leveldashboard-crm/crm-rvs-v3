@@ -51,6 +51,10 @@ type AppSettings = {
   backup_sheet_id_2: string;
   backup_folder_id_2: string;
   dashboard_pivot_sheet_name: string;
+  mailer_web_app_url: string;
+  mailer_shared_secret: string;
+  mailer_mode: string;
+  mailer_enabled: boolean;
 };
 
 type StaffUser = {
@@ -156,7 +160,48 @@ export default function SettingsPage() {
     backup_sheet_id_2: "",
     backup_folder_id_2: "",
     dashboard_pivot_sheet_name: "",
+    mailer_web_app_url: "",
+    mailer_shared_secret: "",
+    mailer_mode: "api",
+    mailer_enabled: false,
   });
+
+  const [testingMailer, setTestingMailer] = useState(false);
+  const [mailerTestStatus, setMailerTestStatus] = useState<"idle" | "ok" | "error">("idle");
+  const [mailerTestMsg, setMailerTestMsg] = useState("");
+
+  const testMailerConnection = async () => {
+    if (!settings.mailer_web_app_url) {
+      toast.error("Please enter the Mailer Web App URL first.");
+      return;
+    }
+    setTestingMailer(true);
+    setMailerTestStatus("idle");
+    setMailerTestMsg("Testing connection...");
+    try {
+      const res = await fetch("/api/mailer/getFolderConfig", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ args: [] }),
+      });
+      const data = await res.json();
+      if (data.success || data.folders) {
+        setMailerTestStatus("ok");
+        setMailerTestMsg(`Connected! Letters: ${data.counts?.letter ?? 0}, Cards: ${data.counts?.card ?? 0}, Itineraries: ${data.counts?.itinerary ?? 0}, Vouchers: ${data.counts?.voucher ?? 0}`);
+        toast.success("✅ Mailer connected successfully!");
+      } else {
+        setMailerTestStatus("error");
+        setMailerTestMsg(data.error || "Connection failed. Check URL/Secret.");
+        toast.error("⚠️ Mailer connection failed: " + (data.error || "Check setup"));
+      }
+    } catch (e: any) {
+      setMailerTestStatus("error");
+      setMailerTestMsg(e.message || "Connection request failed.");
+      toast.error("⚠️ Mailer connection request failed");
+    } finally {
+      setTestingMailer(false);
+    }
+  };
   const [saving, setSaving] = useState(false);
   const [gasStatus, setGasStatus] = useState<"idle" | "ok" | "error">("idle");
   const [pingMsg, setPingMsg] = useState("");
@@ -589,6 +634,10 @@ export default function SettingsPage() {
           backup_sheet_id_2: "",
           backup_folder_id_2: "",
           dashboard_pivot_sheet_name: "",
+          mailer_web_app_url: "",
+          mailer_shared_secret: "",
+          mailer_mode: "api",
+          mailer_enabled: false,
         }));
         setQuickGas("");
         setQuickSheet("");
@@ -643,6 +692,10 @@ export default function SettingsPage() {
           backup_sheet_id_2: s.backup_sheet_id_2 ?? "",
           backup_folder_id_2: s.backup_folder_id_2 ?? "",
           dashboard_pivot_sheet_name: s.dashboard_pivot_sheet_name ?? "",
+          mailer_web_app_url: s.mailer_web_app_url ?? "",
+          mailer_shared_secret: s.mailer_shared_secret ?? "",
+          mailer_mode: s.mailer_mode ?? "api",
+          mailer_enabled: !!s.mailer_enabled,
         };
         setSettings(loaded);
         // Auto-verify silently on load if GAS URL is already configured
@@ -1102,6 +1155,77 @@ export default function SettingsPage() {
               {syncSheet2Msg.ok ? <CheckCircle2 size={13}/> : <AlertCircle size={13}/>} {syncSheet2Msg.message}
             </p>
           )}
+        </div>
+      </Section>
+
+      {/* ── Mailer Integration ──────────────────────────────────────────────── */}
+      <Section
+        isOpen={openSection === "mailer"}
+        onToggle={() => toggle("mailer")}
+        title="BB Concierge Mailer Integration"
+        color="linear-gradient(135deg,#ff2d55,#ff3b30)"
+        icon={<Save size={18} color="white" />}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between p-3 bg-[var(--color-bg-primary)] rounded-xl border border-[var(--color-border)]">
+            <div>
+              <span className="font-semibold text-[var(--color-text-primary)]">Enable Mailer Integration</span>
+              <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">Allow CRM to send personalised emails with Drive attachments</p>
+            </div>
+            <input
+              type="checkbox"
+              className="w-5 h-5 accent-[var(--color-accent)] cursor-pointer"
+              checked={settings.mailer_enabled}
+              onChange={e => setSettings(s => ({ ...s, mailer_enabled: e.target.checked }))}
+            />
+          </div>
+
+          <Field
+            id="mailer-url"
+            label="Apps Script Web App URL"
+            value={settings.mailer_web_app_url}
+            onChange={v => setSettings(s => ({ ...s, mailer_web_app_url: v }))}
+            placeholder="https://script.google.com/macros/s/AKfy…/exec"
+            hint="URL of your deployed BB Concierge Mailer Apps Script web app"
+          />
+
+          <div>
+            <label className="label" htmlFor="mailer-secret">Shared Secret Key</label>
+            <input
+              id="mailer-secret"
+              type="password"
+              className="input"
+              value={settings.mailer_shared_secret}
+              onChange={e => setSettings(s => ({ ...s, mailer_shared_secret: e.target.value }))}
+              placeholder={settings.mailer_shared_secret ? "••••••••••••••••" : "Enter shared secret key"}
+              autoComplete="off"
+            />
+            <p className="mt-1 text-xs text-[var(--color-text-tertiary)] font-medium">Shared key to authenticate CRM calls (must match API_SHARED_SECRET in Code.gs). Note: click "Save All Settings" before testing.</p>
+          </div>
+
+          <div>
+            <label className="label" htmlFor="mailer-mode">Integration Mode</label>
+            <select
+              id="mailer-mode"
+              className="input"
+              value={settings.mailer_mode}
+              onChange={e => setSettings(s => ({ ...s, mailer_mode: e.target.value }))}
+            >
+              <option value="api">API Mode (Native Next.js CRM Interface)</option>
+              <option value="embed">Embed Mode (Iframe existing web app)</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button className="btn-secondary py-2" onClick={testMailerConnection} disabled={testingMailer}>
+              <RefreshCw size={14} className={testingMailer ? "animate-spin" : ""} /> Test Mailer Connection
+            </button>
+            {mailerTestStatus !== "idle" && (
+              <span className={`text-[0.82rem] flex items-center gap-1.5 font-semibold px-3 py-1.5 rounded-lg ${mailerTestStatus === "ok" ? "text-[var(--color-success)] bg-[var(--color-success-light)]" : "text-[var(--color-danger)] bg-[var(--color-danger-light)]"}`}>
+                {mailerTestStatus === "ok" ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />} {mailerTestMsg}
+              </span>
+            )}
+          </div>
         </div>
       </Section>
 

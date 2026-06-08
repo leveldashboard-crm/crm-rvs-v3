@@ -28,6 +28,10 @@ export async function POST() {
         backup_sheet_id_2         = NULL,
         backup_folder_id_2        = NULL,
         dashboard_pivot_sheet_name = NULL,
+        mailer_web_app_url        = NULL,
+        mailer_shared_secret      = NULL,
+        mailer_mode               = 'api',
+        mailer_enabled            = false,
         updated_at                = NOW()
       WHERE id = 1
     `);

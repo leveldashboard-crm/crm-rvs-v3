@@ -16,6 +16,10 @@ async function ensureSettingsSchema() {
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS backup_sheet_id_2 TEXT`,
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS backup_folder_id_2 TEXT`,
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS dashboard_pivot_sheet_name TEXT`,
+    `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_web_app_url TEXT`,
+    `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_shared_secret TEXT`,
+    `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_mode TEXT DEFAULT 'api'`,
+    `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_enabled BOOLEAN DEFAULT false`,
   ];
   for (const stmt of cols) {
     try { await db.execute(sql.raw(stmt)); } catch { /* already exists */ }
@@ -47,6 +51,10 @@ export async function GET() {
         backup_sheet_id_2,
         backup_folder_id_2,
         COALESCE(dashboard_pivot_sheet_name, '') AS dashboard_pivot_sheet_name,
+        mailer_web_app_url,
+        CASE WHEN mailer_shared_secret IS NOT NULL AND mailer_shared_secret <> '' THEN '••••' ELSE '' END AS mailer_shared_secret,
+        COALESCE(mailer_mode, 'api') AS mailer_mode,
+        COALESCE(mailer_enabled, false) AS mailer_enabled,
         updated_at
       FROM app_settings
       WHERE id = 1
@@ -90,6 +98,12 @@ export async function POST(request: Request) {
     const backupSheetId2          = (body.backup_sheet_id_2            as string | null) ?? null;
     const backupFolderId2         = (body.backup_folder_id_2           as string | null) ?? null;
     const dashboardPivotSheetName = (body.dashboard_pivot_sheet_name   as string | null) || null;
+    
+    // Mailer fields
+    const mailerWebAppUrl       = (body.mailer_web_app_url           as string | null) ?? null;
+    const mailerSharedSecret    = (body.mailer_shared_secret        as string | null) ?? null;
+    const mailerMode            = (body.mailer_mode                 as string | null) || "api";
+    const mailerEnabled         = !!body.mailer_enabled;
 
     await db.execute(sql`
       INSERT INTO app_settings (
@@ -107,6 +121,10 @@ export async function POST(request: Request) {
         backup_sheet_id_2,
         backup_folder_id_2,
         dashboard_pivot_sheet_name,
+        mailer_web_app_url,
+        mailer_shared_secret,
+        mailer_mode,
+        mailer_enabled,
         updated_at
       ) VALUES (
         1,
@@ -123,6 +141,10 @@ export async function POST(request: Request) {
         ${backupSheetId2},
         ${backupFolderId2},
         ${dashboardPivotSheetName},
+        ${mailerWebAppUrl},
+        ${mailerSharedSecret},
+        ${mailerMode},
+        ${mailerEnabled},
         NOW()
       )
       ON CONFLICT (id) DO UPDATE SET
@@ -139,6 +161,10 @@ export async function POST(request: Request) {
         backup_sheet_id_2          = EXCLUDED.backup_sheet_id_2,
         backup_folder_id_2         = EXCLUDED.backup_folder_id_2,
         dashboard_pivot_sheet_name = EXCLUDED.dashboard_pivot_sheet_name,
+        mailer_web_app_url         = EXCLUDED.mailer_web_app_url,
+        mailer_shared_secret       = CASE WHEN EXCLUDED.mailer_shared_secret = '••••' THEN app_settings.mailer_shared_secret ELSE EXCLUDED.mailer_shared_secret END,
+        mailer_mode                = EXCLUDED.mailer_mode,
+        mailer_enabled             = EXCLUDED.mailer_enabled,
         updated_at                 = NOW()
     `);
 

@@ -188,6 +188,11 @@ export const appSettings = pgTable("app_settings", {
   backupFolderId2: text("backup_folder_id_2"),          // Optional second backup Drive folder
   // ── Dashboard Pivot Table ────────────────────────────────────────────────
   dashboardPivotSheetName: text("dashboard_pivot_sheet_name"), // Sheet tab name containing dashboard pivot table
+  // ── Mailer Integration ──────────────────────────────────────────────────
+  mailerWebAppUrl: text("mailer_web_app_url"),
+  mailerSharedSecret: text("mailer_shared_secret"),
+  mailerMode: text("mailer_mode").default("api"),
+  mailerEnabled: boolean("mailer_enabled").default(false),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
