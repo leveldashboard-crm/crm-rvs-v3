@@ -201,6 +201,10 @@ export async function GET(request: Request) {
       backup_sheet_id_2          TEXT,
       backup_folder_id_2         TEXT,
       dashboard_pivot_sheet_name TEXT,
+      mailer_web_app_url         TEXT,
+      mailer_shared_secret       TEXT,
+      mailer_mode                TEXT DEFAULT 'api',
+      mailer_enabled             BOOLEAN DEFAULT false,
       updated_at                 TIMESTAMP NOT NULL DEFAULT NOW()
     )
   `);

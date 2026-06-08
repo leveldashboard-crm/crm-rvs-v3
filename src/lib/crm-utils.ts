@@ -339,17 +339,39 @@ export function extractCountryCode(mobile: string | null | undefined): string {
 
 export function parseAnyDate(dStr: string | null | undefined): Date | null {
   if (!dStr) return null;
-  const d = new Date(dStr);
-  if (!isNaN(d.getTime())) return d;
-  // Try DD/MM/YYYY
-  const parts = dStr.split(/[\/\-\s:]+/);
-  if (parts.length >= 3) {
-    // If first part is > 12, it's definitely DD/MM/YYYY
-    // Just blindly try DD/MM/YYYY as fallback
-    const [dd, mm, yyyy] = parts.map(Number);
-    const d2 = new Date(yyyy, mm - 1, dd);
-    if (!isNaN(d2.getTime())) return d2;
+  const s = dStr.trim();
+  if (!s) return null;
+
+  // 1. Try ISO format first (YYYY-MM-DD or full ISO string) — unambiguous
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return d;
   }
+
+  // 2. Try DD/MM/YYYY or DD-MM-YYYY (Indian format — explicit, no ambiguity)
+  const parts = s.split(/[\/\-\s:]+/);
+  if (parts.length >= 3) {
+    const first  = parseInt(parts[0]);
+    const second = parseInt(parts[1]);
+    const third  = parseInt(parts[2]);
+    // If first part > 12, it must be DD/MM/YYYY
+    // If second part > 12, it must be MM/DD/YYYY (US) — but we prefer DD/MM
+    // For this CRM (Indian context), always try DD/MM/YYYY first
+    if (!isNaN(first) && !isNaN(second) && !isNaN(third)) {
+      let year = third;
+      if (year < 100) year = 2000 + year; // 2-digit year
+      // DD/MM/YYYY interpretation
+      const d2 = new Date(year, second - 1, first);
+      if (!isNaN(d2.getTime()) && second >= 1 && second <= 12 && first >= 1 && first <= 31) {
+        return d2;
+      }
+    }
+  }
+
+  // 3. Last resort: native Date parsing (handles named months like "Dec 5, 2025")
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d;
+
   return null;
 }
 

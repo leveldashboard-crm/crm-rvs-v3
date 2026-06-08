@@ -6,6 +6,29 @@ import { eq } from "drizzle-orm";
 import { compare } from "bcryptjs";
 import { writeAuditLog } from "@/lib/audit";
 
+// ─── Simple in-memory brute-force protection ─────────────────────────────────
+// Tracks failed attempts per key (email:ip). Clears after 15 minutes.
+const loginAttempts = new Map<string, { count: number; firstAt: number }>();
+const MAX_ATTEMPTS = 10;    // max failures per window
+const WINDOW_MS   = 15 * 60 * 1000; // 15 minutes
+
+function checkRateLimit(key: string): boolean {
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+  if (!entry || now - entry.firstAt > WINDOW_MS) {
+    // Reset window
+    loginAttempts.set(key, { count: 1, firstAt: now });
+    return true; // allowed
+  }
+  if (entry.count >= MAX_ATTEMPTS) return false; // blocked
+  entry.count++;
+  return true; // allowed
+}
+
+function clearRateLimit(key: string) {
+  loginAttempts.delete(key);
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET || "bb2026-jwt-secret-bharat-buildcon-2026-enterprise",
 
@@ -20,11 +43,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         const email = (credentials?.email as string | undefined)?.toLowerCase().trim();
         const password = credentials?.password as string | undefined;
 
         if (!email || !password) return null;
+
+        // ── Rate limit check ────────────────────────────────────────────────
+        const ip = ((req as unknown) as { headers?: { get?: (key: string) => string | null } })?.headers?.get?.("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+        const rlKey = `${email}:${ip}`;
+        if (!checkRateLimit(rlKey)) {
+          await writeAuditLog({
+            userId: null, userName: email, userRole: "unknown",
+            action: "login_rate_limited", status: "blocked",
+            ipAddress: ip,
+            metadata: { reason: "Too many failed attempts", email, ip },
+          });
+          // Return null — NextAuth will show generic error
+          return null;
+        }
 
         try {
           const [user] = await db
@@ -37,6 +74,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             await writeAuditLog({
               userId: null, userName: email, userRole: "unknown",
               action: "login_failed", status: "failed",
+              ipAddress: ip,
               metadata: { reason: "User not found", email },
             });
             return null;
@@ -47,14 +85,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             await writeAuditLog({
               userId: user.id, userName: user.name ?? user.email, userRole: user.role,
               action: "login_failed", status: "failed",
+              ipAddress: ip,
               metadata: { reason: "Invalid password" },
             });
             return null;
           }
 
+          // ── Successful login — clear rate limit, update last_login_at ─────
+          clearRateLimit(rlKey);
+
+          // Update last_login_at non-blocking
+          db.update(users)
+            .set({ lastLoginAt: new Date() })
+            .where(eq(users.id, user.id))
+            .catch(e => console.error("[auth] lastLoginAt update failed:", e));
+
           await writeAuditLog({
             userId: user.id, userName: user.name ?? user.email, userRole: user.role,
             action: "login", status: "success",
+            ipAddress: ip,
             metadata: { email: user.email },
           });
 
@@ -62,7 +111,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             id: String(user.id),
             email: user.email,
             name: user.name ?? user.email,
-            role: user.role ?? "user",
+            role: user.role ?? "staff",
           };
         } catch (err) {
           console.error("[auth] authorize error:", err);
@@ -101,14 +150,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     jwt({ token, user }) {
       if (user) {
         token.id = user.id as string;
-        token.role = (user as { role?: string }).role ?? "user";
+        token.role = (user as { role?: string }).role ?? "staff";
       }
       return token;
     },
     session({ session, token }) {
       if (session.user) {
         session.user.id = (token.id ?? "") as string;
-        (session.user as { role?: string }).role = (token.role as string) ?? "user";
+        (session.user as { role?: string }).role = (token.role as string) ?? "staff";
       }
       return session;
     },

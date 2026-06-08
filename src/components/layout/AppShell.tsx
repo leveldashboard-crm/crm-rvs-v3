@@ -100,8 +100,9 @@ export default function AppShell({ session, children }: Props) {
       clearAllTimers();
       events.forEach(e => document.removeEventListener(e, handleActivity));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeoutMinutes]);
+  // resetTimer is stable because it's wrapped in useCallback (depends on timeoutMinutes + clearAllTimers)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeoutMinutes, resetTimer]);
 
   const handleSignOut = async () => {
     clearAllTimers();

@@ -495,7 +495,7 @@ export default function TravelDeskPage({ isAdmin = false, isSupervisor = false }
                     : records;
 
                   if (filtered.length === 0) return (
-                    <tr><td colSpan={14} style={{ textAlign: "center", padding: "2rem", color: "var(--color-text-tertiary)" }}>
+                    <tr><td colSpan={16} style={{ textAlign: "center", padding: "2rem", color: "var(--color-text-tertiary)" }}>
                       {records.length === 0 ? "No travel records yet." : `No results for "${travelSearch}"`}
                     </td></tr>
                   );

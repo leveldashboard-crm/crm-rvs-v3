@@ -146,10 +146,11 @@ export async function GET(request: Request) {
       .from(registrations);
 
     // Drizzle returns camelCase keys — frontend expects snake_case
+    // Convert camelCase → snake_case (only break on uppercase letters, not digits)
     const toSnake = (obj: Record<string, unknown>) =>
       Object.fromEntries(
         Object.entries(obj).map(([k, v]) => [
-          k.replace(/([A-Z]|\d+)/g, "_$1").toLowerCase(),
+          k.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_/, ""),
           v,
         ])
       );
