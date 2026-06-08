@@ -6,3 +6,4 @@ out/
 drizzle/
 *.log
 .DS_Store
+.env*.local
