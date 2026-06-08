@@ -263,16 +263,16 @@ export async function GET(request: Request) {
   await run("default settings row", `INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
 
   // ── 10. Seed admin user (parameterised — no SQL injection) ─────────────────────
-  const passwordHash = hashSync("manthan18", 12);
+  const passwordHash = hashSync("buildcon2026", 12);
   try {
     await sql`
       INSERT INTO users (email, password_hash, name, role)
       VALUES ('admin', ${passwordHash}, 'Admin', 'admin')
       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'admin'
     `;
-    results.push({ step: "admin user (admin/manthan18)", status: "✓" });
+    results.push({ step: "admin user (admin/buildcon2026)", status: "✓" });
   } catch (err: unknown) {
-    results.push({ step: "admin user (admin/manthan18)", status: "✗", error: err instanceof Error ? err.message : String(err) });
+    results.push({ step: "admin user (admin/buildcon2026)", status: "✗", error: err instanceof Error ? err.message : String(err) });
   }
 
   await sql.end();
@@ -282,9 +282,9 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: allOk,
     message: allOk
-      ? "✅ Database initialized! You can now login with: admin / manthan18"
+      ? "✅ Database initialized! You can now login with: admin / buildcon2026"
       : "⚠️ Some steps had errors — check results below",
     results,
-    credentials: allOk ? { username: "admin", password: "manthan18" } : undefined,
+    credentials: allOk ? { username: "admin", password: "buildcon2026" } : undefined,
   });
 }

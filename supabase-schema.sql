@@ -373,11 +373,11 @@ CREATE INDEX IF NOT EXISTS idx_att_registration ON session_attendance (registrat
 -- ─── 13. SEED INITIALIZATION ───
 INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
--- Seed Default Admin Account (admin / manthan18)
+-- Seed Default Admin Account (admin / buildcon2026)
 INSERT INTO users (email, password_hash, name, role)
 VALUES (
   'admin',
-  '$2a$12$K7thZh9FoqF.G4vE3c6i0eOKCEBFpD8C1oJbFb2VLPfXrk3vHDVFi',
+  '$2a$12$TFLV90U1JcL4DU4iaw0yA.o.9CBQXTI1SDpbgDwpKb5lNzyQfScqi',
   'System Administrator',
   'admin'
 )
