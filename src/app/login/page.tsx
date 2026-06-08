@@ -2,11 +2,9 @@
 
 import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, Globe, Users, Plane } from "lucide-react";
 import { toast } from "sonner";
-
-import { useRouter } from "next/navigation";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -38,14 +36,14 @@ function LoginForm() {
         redirect: false,
       });
       if (res?.error) {
-        toast.error("Invalid credentials");
+        toast.error("Invalid credentials. Please try again.");
       } else {
-        toast.success("Login successful");
+        toast.success("Login successful!");
         router.push(callbackUrl);
         router.refresh();
       }
     } catch {
-      toast.error("Something went wrong");
+      toast.error("Something went wrong. Please try again later.");
     } finally {
       setIsPending(false);
     }
@@ -56,22 +54,53 @@ function LoginForm() {
       <input type="hidden" name="callbackUrl" value={callbackUrl} />
       <div>
         <label className="label" htmlFor="email">Username / Email</label>
-        <input id="email" name="email" type="text" autoComplete="username" required className="input"
-          placeholder="admin" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input
+          id="email"
+          name="email"
+          type="text"
+          autoComplete="username"
+          required
+          className="input"
+          placeholder="admin"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
       </div>
       <div>
         <label className="label" htmlFor="password">Password</label>
         <div className="relative">
-          <input id="password" name="password" type={showPass ? "text" : "password"} autoComplete="current-password"
-            required className="input pr-11" placeholder="••••••••" value={password}
-            onChange={(e) => setPassword(e.target.value)} />
-          <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors rounded-md bg-transparent border-none cursor-pointer">
+          <input
+            id="password"
+            name="password"
+            type={showPass ? "text" : "password"}
+            autoComplete="current-password"
+            required
+            className="input pr-11"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPass(!showPass)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors rounded-md bg-transparent border-none cursor-pointer"
+          >
             {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
       </div>
-      <button type="submit" disabled={isPending} className="btn-primary w-full justify-center py-2.5 text-[0.9375rem] mt-2 shadow-sm font-semibold">
-        {isPending ? <><Loader2 size={16} className="animate-spin" /> Signing in…</> : "Sign in"}
+      <button
+        type="submit"
+        disabled={isPending}
+        className="btn-primary w-full justify-center py-2.5 text-[0.9375rem] mt-2 shadow-sm font-semibold"
+      >
+        {isPending ? (
+          <>
+            <Loader2 size={16} className="animate-spin" /> Signing in…
+          </>
+        ) : (
+          "Sign in"
+        )}
       </button>
     </form>
   );

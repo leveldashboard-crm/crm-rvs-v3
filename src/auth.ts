@@ -31,6 +31,7 @@ function clearRateLimit(key: string) {
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET || "bb2026-jwt-secret-bharat-buildcon-2026-enterprise",
+  debug: true,
 
   // Required for Vercel / custom domains — allows NextAuth to trust the
   // host header so NEXTAUTH_URL does NOT need to be set on production.
