@@ -153,19 +153,19 @@ CREATE TABLE IF NOT EXISTS travel_records (
   -- Hotel & Accommodation
   hotel_name             TEXT,
   room_no                TEXT,
-  check_in_date          DATE,
-  check_out_date         DATE,
+  check_in_date          TEXT,
+  check_out_date         TEXT,
   room_units             NUMERIC(4,2),
   
   -- Flight Logistics
-  arrival_date           DATE,
+  arrival_date           TEXT,
   arrival_flight_no      TEXT,
   arrival_to             TEXT,
-  arrival_time           TIME,
-  departure_date         DATE,
+  arrival_time           TEXT,
+  departure_date         TEXT,
   departure_flight_no    TEXT,
   departure_from         TEXT,
-  departure_time         TIME,
+  departure_time         TEXT,
   
   -- Workflow Status
   status                 TEXT DEFAULT 'Pending',
