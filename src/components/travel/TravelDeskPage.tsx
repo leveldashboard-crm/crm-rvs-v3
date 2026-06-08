@@ -533,7 +533,14 @@ export default function TravelDeskPage({ isAdmin = false, isSupervisor = false }
                               <Download size={12} /> Download
                             </a>
                           ) : (
-                            <span className="badge badge-neutral">No</span>
+                            col.key === "passport_copy_received" ? (
+                              <div style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}>
+                                <span className="badge badge-neutral">No</span>
+                                <button className="btn-secondary" style={{ padding: "0.15rem 0.35rem", fontSize: "0.65rem", height: "fit-content", borderRadius: "4px" }} onClick={() => fetchPassportUrl(r.id)}>Fetch</button>
+                              </div>
+                            ) : (
+                              <span className="badge badge-neutral">No</span>
+                            )
                           )}
                       </td>
                     ))}

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import {
-  Mail, Upload, RefreshCw, CheckCircle2, AlertCircle, FileText,
-  Play, Clock, History, FileCheck2, Loader2, ArrowRight, Eye, Send, Check, X, Info
+  Mail, Upload, RefreshCw, AlertCircle, FileText,
+  Play, History, Loader2, ArrowRight, Eye, Send, Check, Info
 } from "lucide-react";
 import { parseCSV, detectColumns } from "@/lib/mailer/csv";
 import { fillTpl, TEMPLATE_VARIABLES } from "@/lib/mailer/template";
@@ -54,7 +54,22 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
   const [showConfirm, setShowConfirm] = useState(false);
 
   // Send history log
-  const [historyLogs, setHistoryLogs] = useState<any[]>([]);
+  interface MailHistoryRow {
+    sentOn?: string;
+    timestamp?: string;
+    recipient?: string;
+    email?: string;
+    subject?: string;
+    draft?: string;
+    letter?: boolean;
+    card?: boolean;
+    itinerary?: boolean;
+    voucher?: boolean;
+    status?: string;
+    error?: string;
+  }
+
+  const [historyLogs, setHistoryLogs] = useState<MailHistoryRow[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Setup sheet url
@@ -135,12 +150,14 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
   }, []);
 
   useEffect(() => {
-    if (enabled && mode === "api") {
-      loadFolderConfig();
-      loadDrafts();
-      loadHistoryLogs();
-      loadSheetUrl();
-    }
+    Promise.resolve().then(() => {
+      if (enabled && mode === "api") {
+        loadFolderConfig();
+        loadDrafts();
+        loadHistoryLogs();
+        loadSheetUrl();
+      }
+    });
   }, [enabled, mode, loadFolderConfig, loadDrafts, loadHistoryLogs, loadSheetUrl]);
 
   // File Upload Handling
@@ -284,20 +301,22 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
 
   // Load selected draft details
   useEffect(() => {
-    if (!selectedDraftId) {
-      setDraftCC("");
-      setDraftBCC("");
-      setSubjectOverride("");
-      setHtmlBodyOverride("");
-      return;
-    }
-    const d = drafts.find(x => x.id === selectedDraftId);
-    if (d) {
-      setDraftCC(d.cc || "");
-      setDraftBCC(d.bcc || "");
-      setSubjectOverride(d.subject || "");
-      setHtmlBodyOverride(d.htmlBody || "");
-    }
+    Promise.resolve().then(() => {
+      if (!selectedDraftId) {
+        setDraftCC("");
+        setDraftBCC("");
+        setSubjectOverride("");
+        setHtmlBodyOverride("");
+        return;
+      }
+      const d = drafts.find(x => x.id === selectedDraftId);
+      if (d) {
+        setDraftCC(d.cc || "");
+        setDraftBCC(d.bcc || "");
+        setSubjectOverride(d.subject || "");
+        setHtmlBodyOverride(d.htmlBody || "");
+      }
+    });
   }, [selectedDraftId, drafts]);
 
   // Filters and stats
@@ -306,7 +325,6 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
                       (!folderConfig?.folders?.card || m.hasCard) &&
                       (!folderConfig?.folders?.itinerary || m.hasItinerary) &&
                       (!folderConfig?.folders?.voucher || m.hasVoucher);
-    const hasAtLeastOneDoc = m.hasLetter || m.hasCard || m.hasItinerary || m.hasVoucher;
 
     if (matchFilter === "complete") return m.hasEmail && hasAllDocs;
     if (matchFilter === "incomplete") return !hasAllDocs;
@@ -435,10 +453,11 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
         if (!data.success) {
           console.error(`Failed to send to ${delegate.fullName}: ${data.error}`);
         }
-      } catch (err: any) {
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
         setSendLogs(prev => prev.map((item, i) => {
           if (i === index) {
-            return { ...item, status: "error" as const, error: err.message || "Request error" };
+            return { ...item, status: "error" as const, error: message || "Request error" };
           }
           return item;
         }));
@@ -794,8 +813,9 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
                   className="input"
                   value={selectedDraftId}
                   onChange={e => setSelectedDraftId(e.target.value)}
+                  disabled={loadingDrafts}
                 >
-                  <option value="">-- Select template --</option>
+                  <option value="">{loadingDrafts ? "Loading templates..." : "-- Select template --"}</option>
                   {drafts.map(d => (
                     <option key={d.id} value={d.id}>{d.name}</option>
                   ))}

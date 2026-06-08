@@ -21,7 +21,13 @@ export interface DelegateMatch {
   hasItinerary: boolean;
   voucher: DriveFileLink | null;
   hasVoucher: boolean;
-  [key: string]: any; // Allow indexing
+  title?: string;
+  firstName?: string;
+  lastName?: string;
+  company?: string;
+  designation?: string;
+  region?: string;
+  [key: string]: unknown; // Allow indexing
 }
 
 export interface Draft {
@@ -72,9 +78,9 @@ export interface SendPayload {
   voucherFileId: string;
 }
 
-export interface MailerResult<T = any> {
+export interface MailerResult<T = unknown> {
   success: boolean;
   error?: string;
   result?: T;
-  [key: string]: any;
+  [key: string]: unknown;
 }

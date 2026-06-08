@@ -194,9 +194,10 @@ export default function SettingsPage() {
         setMailerTestMsg(data.error || "Connection failed. Check URL/Secret.");
         toast.error("⚠️ Mailer connection failed: " + (data.error || "Check setup"));
       }
-    } catch (e: any) {
+    } catch (e) {
       setMailerTestStatus("error");
-      setMailerTestMsg(e.message || "Connection request failed.");
+      const message = e instanceof Error ? e.message : String(e);
+      setMailerTestMsg(message || "Connection request failed.");
       toast.error("⚠️ Mailer connection request failed");
     } finally {
       setTestingMailer(false);
@@ -1200,7 +1201,7 @@ export default function SettingsPage() {
               placeholder={settings.mailer_shared_secret ? "••••••••••••••••" : "Enter shared secret key"}
               autoComplete="off"
             />
-            <p className="mt-1 text-xs text-[var(--color-text-tertiary)] font-medium">Shared key to authenticate CRM calls (must match API_SHARED_SECRET in Code.gs). Note: click "Save All Settings" before testing.</p>
+            <p className="mt-1 text-xs text-[var(--color-text-tertiary)] font-medium">Shared key to authenticate CRM calls (must match API_SHARED_SECRET in Code.gs). Note: click &quot;Save All Settings&quot; before testing.</p>
           </div>
 
           <div>

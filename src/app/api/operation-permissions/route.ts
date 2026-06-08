@@ -26,7 +26,7 @@ export async function GET() {
       SELECT * FROM operation_permissions ORDER BY created_at DESC LIMIT 100
     `);
     return NextResponse.json({ permissions: Array.from(rows) });
-  } catch (_err) {
+  } catch {
     return NextResponse.json({ error: "Database error" }, { status: 500 });
   }
 }

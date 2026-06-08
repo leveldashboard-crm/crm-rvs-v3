@@ -99,7 +99,7 @@ export default function ChatPage({
           setSending(false);
           return;
         }
-      } catch (err) {
+      } catch {
         toast.error("Network error during upload");
         setSending(false);
         return;
@@ -168,7 +168,7 @@ export default function ChatPage({
         body: JSON.stringify({ message: editingText.trim() }),
       });
       mutate();
-    } catch (_err: unknown) {
+    } catch {
       toast.error("Failed to edit message");
       mutate();
     }

@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
 
-type MailerResult<T = any> = { success: boolean; error?: string } & T;
+type MailerResult<T = unknown> = { success: boolean; error?: string } & T;
 
 async function loadSetting(key: "mailer.webAppUrl" | "mailer.sharedSecret"): Promise<string | null> {
   try {
@@ -11,7 +11,7 @@ async function loadSetting(key: "mailer.webAppUrl" | "mailer.sharedSecret"): Pro
     `);
     const rows = Array.from(result);
     if (rows.length === 0) return null;
-    const row = rows[0] as any;
+    const row = rows[0] as { mailer_web_app_url?: string | null; mailer_shared_secret?: string | null };
     if (key === "mailer.webAppUrl") return row.mailer_web_app_url || null;
     if (key === "mailer.sharedSecret") return row.mailer_shared_secret || null;
   } catch (e) {
@@ -29,7 +29,7 @@ async function getConfig() {
   return { url, secret };
 }
 
-export async function callMailer<T = any>(fn: string, args: any[] = []): Promise<MailerResult<T>> {
+export async function callMailer<T = unknown>(fn: string, args: unknown[] = []): Promise<MailerResult<T>> {
   const { url, secret } = await getConfig();
   
   const res = await fetch(url, {

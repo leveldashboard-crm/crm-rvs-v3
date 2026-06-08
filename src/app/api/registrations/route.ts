@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { registrations, travelRecords } from "@/db/schema";
+import { registrations } from "@/db/schema";
 import { eq, asc, sql, inArray } from "drizzle-orm";
 import { writeAuditLog } from "@/lib/audit";
 

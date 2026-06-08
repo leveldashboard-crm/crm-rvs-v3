@@ -40,8 +40,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ fn:
     const { args = [] } = await req.json().catch(() => ({ args: [] }));
     const result = await callMailer(fn, args);
     return NextResponse.json(result);
-  } catch (err: any) {
+  } catch (err) {
     console.error(`[POST /api/mailer/${fn}]`, err);
-    return NextResponse.json({ success: false, error: err.message || "Mailer API Error" }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ success: false, error: message || "Mailer API Error" }, { status: 500 });
   }
 }
