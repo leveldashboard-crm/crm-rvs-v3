@@ -25,7 +25,7 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvData, setCsvData] = useState<{ headers: string[]; rows: Record<string, string>[] } | null>(null);
   const [detectedCols, setDetectedCols] = useState<Record<string, string>>({});
-  
+
   // Matching State
   const [matching, setMatching] = useState(false);
   const [matches, setMatches] = useState<DelegateMatch[]>([]);
@@ -151,7 +151,7 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
       if (data.success && data.result) {
         setSheetUrl(data.result);
       }
-    } catch {}
+    } catch { }
   }, []);
 
   useEffect(() => {
@@ -242,7 +242,7 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
       const data = await res.json();
       if (data.success && Array.isArray(data.result)) {
         setMatches(data.result);
-        
+
         // Auto-select "Ready" delegates (has email + at least one matched doc)
         const initialSelected: Record<number, boolean> = {};
         data.result.forEach((m: DelegateMatch) => {
@@ -327,9 +327,9 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
   // Filters and stats
   const filteredMatches = matches.filter(m => {
     const hasAllDocs = (!folderConfig?.folders?.letter || m.hasLetter) &&
-                      (!folderConfig?.folders?.card || m.hasCard) &&
-                      (!folderConfig?.folders?.itinerary || m.hasItinerary) &&
-                      (!folderConfig?.folders?.voucher || m.hasVoucher);
+      (!folderConfig?.folders?.card || m.hasCard) &&
+      (!folderConfig?.folders?.itinerary || m.hasItinerary) &&
+      (!folderConfig?.folders?.voucher || m.hasVoucher);
 
     if (matchFilter === "complete") return m.hasEmail && hasAllDocs;
     if (matchFilter === "incomplete") return !hasAllDocs;
@@ -448,7 +448,7 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
     setShowConfirm(false);
     setSending(true);
     setSendProgress(0);
-    
+
     const selectedList = matches.filter(m => selectedMatches[m.rowIndex]);
     const total = selectedList.length;
     const initialLogs = selectedList.map(m => ({ name: m.fullName, email: m.email, status: "pending" as const }));
@@ -501,7 +501,7 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
           body: JSON.stringify({ args: [payload] }),
         });
         const data = await res.json();
-        
+
         setSendLogs(prev => prev.map((item, i) => {
           if (i === index) {
             return {
@@ -608,32 +608,29 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
       <div className="flex border-b border-[var(--color-border)] mb-6 gap-2">
         <button
           onClick={() => setActiveTab("import")}
-          className={`py-3 px-4 flex items-center gap-2 font-semibold text-sm border-b-2 bg-transparent border-none cursor-pointer transition-colors ${
-            activeTab === "import"
-              ? "border-[var(--color-accent)] text-[var(--color-accent)]"
-              : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-          }`}
+          className={`py-3 px-4 flex items-center gap-2 font-semibold text-sm border-b-2 bg-transparent border-none cursor-pointer transition-colors ${activeTab === "import"
+            ? "border-[var(--color-accent)] text-[var(--color-accent)]"
+            : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+            }`}
         >
           <Upload size={16} /> Import &amp; Match
         </button>
         <button
           onClick={() => setActiveTab("send")}
-          className={`py-3 px-4 flex items-center gap-2 font-semibold text-sm border-b-2 bg-transparent border-none cursor-pointer transition-colors ${
-            activeTab === "send"
-              ? "border-[var(--color-accent)] text-[var(--color-accent)]"
-              : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-          }`}
+          className={`py-3 px-4 flex items-center gap-2 font-semibold text-sm border-b-2 bg-transparent border-none cursor-pointer transition-colors ${activeTab === "send"
+            ? "border-[var(--color-accent)] text-[var(--color-accent)]"
+            : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+            }`}
           disabled={matches.length === 0}
         >
           <Mail size={16} /> Compose &amp; Send
         </button>
         <button
           onClick={() => setActiveTab("log")}
-          className={`py-3 px-4 flex items-center gap-2 font-semibold text-sm border-b-2 bg-transparent border-none cursor-pointer transition-colors ${
-            activeTab === "log"
-              ? "border-[var(--color-accent)] text-[var(--color-accent)]"
-              : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-          }`}
+          className={`py-3 px-4 flex items-center gap-2 font-semibold text-sm border-b-2 bg-transparent border-none cursor-pointer transition-colors ${activeTab === "log"
+            ? "border-[var(--color-accent)] text-[var(--color-accent)]"
+            : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+            }`}
         >
           <History size={16} /> Send History Logs
         </button>
@@ -721,7 +718,7 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
                   <span>Complete: <strong>{matches.filter(m => m.hasLetter && m.hasCard && m.hasItinerary && m.hasVoucher).length}</strong></span>
                   <span>Selected: <strong>{totalSelected}</strong></span>
                 </div>
-                
+
                 {/* Actions */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <button className="btn-secondary py-1 px-3 text-xs" onClick={handleSelectAll}>Select All</button>
@@ -745,11 +742,10 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
                   <button
                     key={f.value}
                     onClick={() => setMatchFilter(f.value)}
-                    className={`py-1.5 px-3 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-                      matchFilter === f.value
-                        ? "bg-[var(--color-accent)] text-white border-[var(--color-accent)] shadow-sm"
-                        : "bg-[var(--color-surface)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-[var(--color-accent)]"
-                    }`}
+                    className={`py-1.5 px-3 rounded-full text-xs font-semibold border transition-all cursor-pointer ${matchFilter === f.value
+                      ? "bg-[var(--color-accent)] text-white border-[var(--color-accent)] shadow-sm"
+                      : "bg-[var(--color-surface)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-[var(--color-accent)]"
+                      }`}
                   >
                     {f.label}
                   </button>
@@ -826,13 +822,12 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
                             )}
                           </td>
                           <td>
-                            <span className={`inline-flex px-2 py-0.5 rounded text-[0.7rem] font-bold uppercase ${
-                              m.confidence === "exact"
-                                ? "bg-green-500/10 text-green-600"
-                                : m.confidence === "fuzzy" || m.confidence === "name"
+                            <span className={`inline-flex px-2 py-0.5 rounded text-[0.7rem] font-bold uppercase ${m.confidence === "exact"
+                              ? "bg-green-500/10 text-green-600"
+                              : m.confidence === "fuzzy" || m.confidence === "name"
                                 ? "bg-blue-500/10 text-blue-600"
                                 : "bg-amber-500/10 text-amber-600"
-                            }`}>
+                              }`}>
                               {m.confidence}
                             </span>
                           </td>
@@ -869,7 +864,7 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
           <div className="lg:col-span-5 flex flex-col gap-5">
             <div className="glass-card p-5 shadow-sm flex flex-col gap-4">
               <h3 className="font-bold text-base text-[var(--color-text-primary)] border-b border-[var(--color-border)] pb-2">1. Choose Draft Template</h3>
-              
+
               <div>
                 <label className="label">Draft Picker</label>
                 <select
@@ -942,9 +937,8 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
                 ] as const).map(({ type, label }) => {
                   const hasFolder = !!folderConfig?.folders?.[type];
                   return (
-                    <label key={type} className={`flex items-center justify-between p-2.5 rounded-lg border text-xs font-semibold cursor-pointer ${
-                      hasFolder ? "border-[var(--color-border)] hover:border-[var(--color-accent)]" : "opacity-40 bg-[var(--color-bg-primary)] border-transparent cursor-not-allowed"
-                    }`}>
+                    <label key={type} className={`flex items-center justify-between p-2.5 rounded-lg border text-xs font-semibold cursor-pointer ${hasFolder ? "border-[var(--color-border)] hover:border-[var(--color-accent)]" : "opacity-40 bg-[var(--color-bg-primary)] border-transparent cursor-not-allowed"
+                      }`}>
                       <span>{label}</span>
                       <input
                         type="checkbox"
@@ -1014,7 +1008,7 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
 
             {/* Template Variables Helper */}
             <div className="glass-card p-4 shadow-sm text-xs border border-[var(--color-border)]/50 bg-[var(--color-bg-primary)]/40">
-              <h4 className="font-bold text-[var(--color-text-primary)] mb-2 flex items-center gap-1.5"><Info size={13} className="text-[var(--color-accent)]"/> Available Variables</h4>
+              <h4 className="font-bold text-[var(--color-text-primary)] mb-2 flex items-center gap-1.5"><Info size={13} className="text-[var(--color-accent)]" /> Available Variables</h4>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[var(--color-text-secondary)] max-h-[140px] overflow-y-auto pr-1">
                 {TEMPLATE_VARIABLES.map(v => (
                   <div key={v.placeholder} className="py-0.5 border-b border-[var(--color-border)]/20">
@@ -1049,7 +1043,7 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
                   </div>
                   <span>{sendProgress}%</span>
                 </div>
-                
+
                 {/* Progress bar */}
                 <div className="w-full bg-white/10 h-2.5 rounded-full overflow-hidden">
                   <div className="bg-[var(--color-accent)] h-full transition-all duration-300" style={{ width: `${sendProgress}%` }} />
@@ -1058,9 +1052,8 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
                 {/* Log screen */}
                 <div className="h-[300px] overflow-y-auto pr-2 flex flex-col gap-1 select-text scrollbar-thin scrollbar-thumb-white/10">
                   {sendLogs.slice(-20).map((l, i) => (
-                    <div key={i} className={`py-0.5 ${
-                      l.status === "success" ? "text-green-300" : l.status === "error" ? "text-red-400" : "text-amber-300 animate-pulse"
-                    }`}>
+                    <div key={i} className={`py-0.5 ${l.status === "success" ? "text-green-300" : l.status === "error" ? "text-red-400" : "text-amber-300 animate-pulse"
+                      }`}>
                       [{new Date().toLocaleTimeString()}] {l.status === "success" ? "✓ SUCCESS" : l.status === "error" ? `✗ FAILED: ${l.error}` : "⏳ SENDING"} → {l.name} ({l.email})
                     </div>
                   ))}
@@ -1071,7 +1064,7 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
             {/* HTML Preview Iframe */}
             {!sending && (
               <div className="glass-card p-5 shadow-sm flex flex-col gap-3 h-full min-h-[500px]">
-                <h3 className="font-bold text-xs text-[var(--color-text-secondary)] uppercase tracking-wider flex items-center gap-1.5"><Eye size={14}/> Client Template Preview</h3>
+                <h3 className="font-bold text-xs text-[var(--color-text-secondary)] uppercase tracking-wider flex items-center gap-1.5"><Eye size={14} /> Client Template Preview</h3>
                 <div className="border border-[var(--color-border)] rounded-xl flex-1 bg-white overflow-hidden shadow-inner">
                   <iframe
                     title="Live Email HTML Preview"
