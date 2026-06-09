@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { hash } from "bcryptjs";
+import { hashPassword } from "@/lib/password";
 
 // Helper – only admin role can call these routes
 async function requireAdmin() {
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     const validRoles = ["admin", "supervisor", "user"];
     const assignedRole = validRoles.includes(role ?? "") ? role! : "user";
 
-    const passwordHash = await hash(password, 12);
+    const passwordHash = hashPassword(password);
 
     const [user] = await db
       .insert(users)
@@ -76,7 +76,7 @@ export async function PUT(request: Request) {
     const updates: Record<string, unknown> = { updatedAt: new Date() };
     if (role && validRoles.includes(role)) updates.role = role;
     if (name) updates.name = name;
-    if (password) updates.passwordHash = await hash(password, 12);
+    if (password) updates.passwordHash = hashPassword(password);
 
     const [updated] = await db.update(users).set(updates).where(eq(users.id, id)).returning({
       id: users.id, email: users.email, name: users.name, role: users.role,

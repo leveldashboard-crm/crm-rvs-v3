@@ -13,26 +13,12 @@ export interface AuditParams {
   metadata?: Record<string, unknown>;
 }
 
-// Run once per process start — guards are cheap after the first call
-let _auditMigrated = false;
+// Audit log schema is fully guaranteed by migrations and setup, no runtime DDL checks are required.
 async function ensureAuditSchema() {
-  if (_auditMigrated) return;
-  try {
-    await db.execute(sql`
-      ALTER TABLE audit_log
-        ADD COLUMN IF NOT EXISTS user_name  TEXT,
-        ADD COLUMN IF NOT EXISTS user_role  TEXT,
-        ADD COLUMN IF NOT EXISTS status     TEXT DEFAULT 'success',
-        ADD COLUMN IF NOT EXISTS ip_address TEXT
-    `);
-    _auditMigrated = true;
-  } catch {
-    // Non-fatal — column may already exist
-    _auditMigrated = true;
-  }
+  return;
 }
 
-let _opPermMigrated = false;
+let _opPermMigrated = true;
 
 /**
  * Enterprise-grade audit logger.
@@ -67,27 +53,6 @@ export async function writeAuditLog(params: AuditParams): Promise<void> {
  * Uses a process-level flag so the DDL only runs once per server restart.
  */
 export async function ensureOpPermTable(): Promise<void> {
-  if (_opPermMigrated) return;
-  try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS operation_permissions (
-        id                SERIAL PRIMARY KEY,
-        requested_by      INTEGER,
-        requested_by_name TEXT,
-        operation         TEXT NOT NULL,
-        description       TEXT,
-        status            TEXT DEFAULT 'pending',
-        approved_by       INTEGER,
-        approved_by_name  TEXT,
-        confirmed_at      TIMESTAMP,
-        expires_at        TIMESTAMP,
-        metadata          JSONB,
-        created_at        TIMESTAMP NOT NULL DEFAULT NOW(),
-        updated_at        TIMESTAMP NOT NULL DEFAULT NOW()
-      )
-    `);
-    _opPermMigrated = true;
-  } catch {
-    _opPermMigrated = true;
-  }
+  // Table schema is already guaranteed by setup and migrations.
+  return;
 }

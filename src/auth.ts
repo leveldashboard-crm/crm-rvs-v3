@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { compare } from "bcryptjs";
+import { comparePassword, hashPassword, isBcryptHash } from "@/lib/password";
 import { writeAuditLog } from "@/lib/audit";
 
 // ─── Simple in-memory brute-force protection ─────────────────────────────────
@@ -54,12 +54,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const ip = ((req as unknown) as { headers?: { get?: (key: string) => string | null } })?.headers?.get?.("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
         const rlKey = `${email}:${ip}`;
         if (!checkRateLimit(rlKey)) {
-          await writeAuditLog({
+          writeAuditLog({
             userId: null, userName: email, userRole: "unknown",
             action: "login_rate_limited", status: "blocked",
             ipAddress: ip,
             metadata: { reason: "Too many failed attempts", email, ip },
-          });
+          }).catch(e => console.error("[auth] writeAuditLog failed:", e));
           // Return null — NextAuth will show generic error
           return null;
         }
@@ -72,23 +72,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             .limit(1);
 
           if (!user?.passwordHash) {
-            await writeAuditLog({
+            writeAuditLog({
               userId: null, userName: email, userRole: "unknown",
               action: "login_failed", status: "failed",
               ipAddress: ip,
               metadata: { reason: "User not found", email },
-            });
+            }).catch(e => console.error("[auth] writeAuditLog failed:", e));
             return null;
           }
 
-          const valid = await compare(password, user.passwordHash);
+          const valid = comparePassword(password, user.passwordHash);
           if (!valid) {
-            await writeAuditLog({
+            writeAuditLog({
               userId: user.id, userName: user.name ?? user.email, userRole: user.role,
               action: "login_failed", status: "failed",
               ipAddress: ip,
               metadata: { reason: "Invalid password" },
-            });
+            }).catch(e => console.error("[auth] writeAuditLog failed:", e));
             return null;
           }
 
@@ -101,12 +101,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             .where(eq(users.id, user.id))
             .catch(e => console.error("[auth] lastLoginAt update failed:", e));
 
-          await writeAuditLog({
+          // Migrate password to fast hash format if it's legacy bcrypt format
+          if (isBcryptHash(user.passwordHash)) {
+            const newFastHash = hashPassword(password);
+            db.update(users)
+              .set({ passwordHash: newFastHash })
+              .where(eq(users.id, user.id))
+              .catch(e => console.error("[auth] failed to migrate password hash:", e));
+          }
+
+          writeAuditLog({
             userId: user.id, userName: user.name ?? user.email, userRole: user.role,
             action: "login", status: "success",
             ipAddress: ip,
             metadata: { email: user.email },
-          });
+          }).catch(e => console.error("[auth] writeAuditLog failed:", e));
 
           return {
             id: String(user.id),

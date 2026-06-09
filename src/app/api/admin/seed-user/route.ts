@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { hash } from "bcryptjs";
+import { hashPassword } from "@/lib/password";
 
 // POST /api/admin/seed-user - creates initial admin user
 export async function POST(request: Request) {
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "email and password required" }, { status: 400 });
     }
 
-    const passwordHash = await hash(password, 12);
+    const passwordHash = hashPassword(password);
 
     const [user] = await db
       .insert(users)

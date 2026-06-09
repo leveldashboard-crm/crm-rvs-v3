@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import postgres from "postgres";
-import { hashSync } from "bcryptjs";
+import { hashPassword } from "@/lib/password";
 
 // GET /api/setup — one-time DB init + admin seed
 // Protected by ADMIN_SECRET_KEY query param
@@ -263,7 +263,7 @@ export async function GET(request: Request) {
   await run("default settings row", `INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
 
   // ── 10. Seed admin user (parameterised — no SQL injection) ─────────────────────
-  const passwordHash = hashSync("buildcon2026", 12);
+  const passwordHash = hashPassword("buildcon2026");
   try {
     await sql`
       INSERT INTO users (email, password_hash, name, role)

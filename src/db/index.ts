@@ -16,7 +16,12 @@ function getInstance() {
 
   // Re-create if schema changed (to fix HMR keeping old schema definitions)
   if (!globalForDb._db_instance || globalForDb._db_schema_keys !== currentSchemaKeys) {
-    const client = postgres(url, { prepare: false });
+    const client = postgres(url, {
+      prepare: false,
+      max: 1,
+      idle_timeout: 20,
+      connect_timeout: 10,
+    });
     globalForDb._db_instance = drizzle(client, { schema });
     globalForDb._db_schema_keys = currentSchemaKeys;
   }
