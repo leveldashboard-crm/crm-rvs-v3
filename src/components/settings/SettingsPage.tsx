@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import {
   Save, RefreshCw, ExternalLink, CheckCircle2, AlertCircle,
-  Plus, Shield, Pencil, Trash2, Eye, EyeOff, X, ChevronDown, Zap, Link2, Wifi, Download
+  Plus, Shield, Pencil, Trash2, Eye, EyeOff, X, ChevronDown, Zap, Link2, Wifi, Download, Mail
 } from "lucide-react";
 import { pingGas } from "@/lib/gas-client";
 import * as XLSX from "xlsx";
@@ -55,6 +55,18 @@ type AppSettings = {
   mailer_shared_secret: string;
   mailer_mode: string;
   mailer_enabled: boolean;
+  // SMTP / Email sender
+  mailer_smtp_host: string;
+  mailer_smtp_port: string;
+  mailer_smtp_user: string;
+  mailer_smtp_pass: string;
+  mailer_smtp_from: string;
+  // Drive folder IDs for PDF attachments
+  mailer_folder_letter: string;
+  mailer_folder_card: string;
+  mailer_folder_itinerary: string;
+  mailer_folder_voucher: string;
+  mailer_drive_api_key: string;
 };
 
 type StaffUser = {
@@ -164,6 +176,16 @@ export default function SettingsPage() {
     mailer_shared_secret: "",
     mailer_mode: "api",
     mailer_enabled: false,
+    mailer_smtp_host: "smtp.gmail.com",
+    mailer_smtp_port: "587",
+    mailer_smtp_user: "",
+    mailer_smtp_pass: "",
+    mailer_smtp_from: "",
+    mailer_folder_letter: "",
+    mailer_folder_card: "",
+    mailer_folder_itinerary: "",
+    mailer_folder_voucher: "",
+    mailer_drive_api_key: "",
   });
 
   const [testingMailer, setTestingMailer] = useState(false);
@@ -171,34 +193,42 @@ export default function SettingsPage() {
   const [mailerTestMsg, setMailerTestMsg] = useState("");
 
   const testMailerConnection = async () => {
-    if (!settings.mailer_web_app_url) {
-      toast.error("Please enter the Mailer Web App URL first.");
+    if (!settings.mailer_smtp_user || !settings.mailer_smtp_pass) {
+      toast.error("Please enter the SMTP Username and Password first.");
       return;
     }
     setTestingMailer(true);
     setMailerTestStatus("idle");
-    setMailerTestMsg("Testing connection...");
+    setMailerTestMsg("Testing SMTP connection...");
     try {
-      const res = await fetch("/api/mailer/getFolderConfig", {
+      const customSmtpSettings = {
+        smtpHost: settings.mailer_smtp_host,
+        smtpPort: Number(settings.mailer_smtp_port) || 587,
+        smtpUser: settings.mailer_smtp_user,
+        smtpPass: settings.mailer_smtp_pass,
+        smtpFrom: settings.mailer_smtp_from,
+      };
+
+      const res = await fetch("/api/mailer/verifySmtp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ args: [] }),
+        body: JSON.stringify({ args: [customSmtpSettings] }),
       });
       const data = await res.json();
-      if (data.success || data.folders) {
+      if (data.success) {
         setMailerTestStatus("ok");
-        setMailerTestMsg(`Connected! Letters: ${data.counts?.letter ?? 0}, Cards: ${data.counts?.card ?? 0}, Itineraries: ${data.counts?.itinerary ?? 0}, Vouchers: ${data.counts?.voucher ?? 0}`);
-        toast.success("✅ Mailer connected successfully!");
+        setMailerTestMsg("SMTP Connection successful!");
+        toast.success("✅ SMTP connection verified successfully!");
       } else {
         setMailerTestStatus("error");
-        setMailerTestMsg(data.error || "Connection failed. Check URL/Secret.");
-        toast.error("⚠️ Mailer connection failed: " + (data.error || "Check setup"));
+        setMailerTestMsg(data.error || "SMTP authentication failed.");
+        toast.error("⚠️ SMTP connection failed: " + (data.error || "Check credentials"));
       }
     } catch (e) {
       setMailerTestStatus("error");
       const message = e instanceof Error ? e.message : String(e);
-      setMailerTestMsg(message || "Connection request failed.");
-      toast.error("⚠️ Mailer connection request failed");
+      setMailerTestMsg(message || "SMTP connection request failed.");
+      toast.error("⚠️ SMTP connection request failed");
     } finally {
       setTestingMailer(false);
     }
@@ -697,6 +727,16 @@ export default function SettingsPage() {
           mailer_shared_secret: s.mailer_shared_secret ?? "",
           mailer_mode: s.mailer_mode ?? "api",
           mailer_enabled: !!s.mailer_enabled,
+          mailer_smtp_host: s.mailer_smtp_host ?? "smtp.gmail.com",
+          mailer_smtp_port: String(s.mailer_smtp_port ?? "587"),
+          mailer_smtp_user: s.mailer_smtp_user ?? "",
+          mailer_smtp_pass: s.mailer_smtp_pass ?? "",
+          mailer_smtp_from: s.mailer_smtp_from ?? "",
+          mailer_folder_letter: s.mailer_folder_letter ?? "",
+          mailer_folder_card: s.mailer_folder_card ?? "",
+          mailer_folder_itinerary: s.mailer_folder_itinerary ?? "",
+          mailer_folder_voucher: s.mailer_folder_voucher ?? "",
+          mailer_drive_api_key: s.mailer_drive_api_key ?? "",
         };
         setSettings(loaded);
         // Auto-verify silently on load if GAS URL is already configured
@@ -1165,9 +1205,10 @@ export default function SettingsPage() {
         onToggle={() => toggle("mailer")}
         title="BB Concierge Mailer Integration"
         color="linear-gradient(135deg,#ff2d55,#ff3b30)"
-        icon={<Save size={18} color="white" />}
+        icon={<Mail size={18} color="white" />}
       >
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
+          {/* Enable toggle */}
           <div className="flex items-center justify-between p-3 bg-[var(--color-bg-primary)] rounded-xl border border-[var(--color-border)]">
             <div>
               <span className="font-semibold text-[var(--color-text-primary)]">Enable Mailer Integration</span>
@@ -1181,56 +1222,96 @@ export default function SettingsPage() {
             />
           </div>
 
-          <Field
-            id="mailer-url"
-            label="Apps Script Web App URL"
-            value={settings.mailer_web_app_url}
-            onChange={v => setSettings(s => ({ ...s, mailer_web_app_url: v }))}
-            placeholder="https://script.google.com/macros/s/AKfy…/exec"
-            hint="URL of your deployed BB Concierge Mailer Apps Script web app"
-          />
-
-          <div>
-            <label className="label" htmlFor="mailer-secret">Shared Secret Key</label>
-            <input
-              id="mailer-secret"
-              type="password"
-              className="input"
-              value={settings.mailer_shared_secret}
-              onChange={e => setSettings(s => ({ ...s, mailer_shared_secret: e.target.value }))}
-              placeholder={settings.mailer_shared_secret ? "••••••••••••••••" : "Enter shared secret key"}
-              autoComplete="off"
-            />
-            <p className="mt-1 text-xs text-[var(--color-text-tertiary)] font-medium">Shared key to authenticate CRM calls (must match API_SHARED_SECRET in Code.gs). Note: click &quot;Save All Settings&quot; before testing.</p>
+          {/* SMTP Configuration */}
+          <div className="bg-[var(--color-bg-primary)] rounded-xl p-4 border border-[var(--color-border)] flex flex-col gap-4">
+            <p className="font-bold text-[0.875rem] text-[var(--color-text-primary)] flex items-center gap-1.5">
+              <Zap size={14} className="text-[var(--color-accent)]" /> SMTP Email Sender
+            </p>
+            <p className="text-[0.78rem] text-[var(--color-text-tertiary)] -mt-2 leading-relaxed">
+              For Gmail: enable 2-Step Verification → generate an <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-[var(--color-accent)] hover:underline font-medium">App Password</a> → use it as the SMTP password below.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field id="mailer-smtp-host" label="SMTP Host"
+                value={settings.mailer_smtp_host}
+                onChange={v => setSettings(s => ({ ...s, mailer_smtp_host: v }))}
+                placeholder="smtp.gmail.com" hint="Gmail: smtp.gmail.com · Outlook: smtp.office365.com" />
+              <Field id="mailer-smtp-port" label="SMTP Port"
+                value={settings.mailer_smtp_port}
+                onChange={v => setSettings(s => ({ ...s, mailer_smtp_port: v }))}
+                placeholder="587" hint="587 (TLS) · 465 (SSL) · 25 (plain)" />
+              <Field id="mailer-smtp-user" label="Gmail / SMTP Username"
+                value={settings.mailer_smtp_user}
+                onChange={v => setSettings(s => ({ ...s, mailer_smtp_user: v }))}
+                placeholder="yourname@gmail.com" />
+              <div>
+                <label className="label" htmlFor="mailer-smtp-pass">SMTP Password / App Password</label>
+                <input
+                  id="mailer-smtp-pass"
+                  type="password"
+                  className="input"
+                  value={settings.mailer_smtp_pass}
+                  onChange={e => setSettings(s => ({ ...s, mailer_smtp_pass: e.target.value }))}
+                  placeholder="Gmail App Password (16 chars)"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Field id="mailer-smtp-from" label="Display From Address (optional)"
+                  value={settings.mailer_smtp_from}
+                  onChange={v => setSettings(s => ({ ...s, mailer_smtp_from: v }))}
+                  placeholder="noreply@yourcompany.com (leave blank to use SMTP username)" />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button className="btn-secondary py-2" onClick={testMailerConnection} disabled={testingMailer}>
+                <RefreshCw size={14} className={testingMailer ? "animate-spin" : ""} /> Test SMTP Connection
+              </button>
+              {mailerTestStatus !== "idle" && (
+                <span className={`text-[0.82rem] flex items-center gap-1.5 font-semibold px-3 py-1.5 rounded-lg ${mailerTestStatus === "ok" ? "text-[var(--color-success)] bg-[var(--color-success-light)]" : "text-[var(--color-danger)] bg-[var(--color-danger-light)]"}`}>
+                  {mailerTestStatus === "ok" ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />} {mailerTestMsg}
+                </span>
+              )}
+            </div>
           </div>
 
-          <div>
-            <label className="label" htmlFor="mailer-mode">Integration Mode</label>
-            <select
-              id="mailer-mode"
-              className="input"
-              value={settings.mailer_mode}
-              onChange={e => setSettings(s => ({ ...s, mailer_mode: e.target.value }))}
-            >
-              <option value="api">API Mode (Native Next.js CRM Interface)</option>
-              <option value="embed">Embed Mode (Iframe existing web app)</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button className="btn-secondary py-2" onClick={testMailerConnection} disabled={testingMailer}>
-              <RefreshCw size={14} className={testingMailer ? "animate-spin" : ""} /> Test Mailer Connection
-            </button>
-            {mailerTestStatus !== "idle" && (
-              <span className={`text-[0.82rem] flex items-center gap-1.5 font-semibold px-3 py-1.5 rounded-lg ${mailerTestStatus === "ok" ? "text-[var(--color-success)] bg-[var(--color-success-light)]" : "text-[var(--color-danger)] bg-[var(--color-danger-light)]"}`}>
-                {mailerTestStatus === "ok" ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />} {mailerTestMsg}
-              </span>
-            )}
+          {/* Drive Folder Configuration */}
+          <div className="bg-[var(--color-bg-primary)] rounded-xl p-4 border border-[var(--color-border)] flex flex-col gap-4">
+            <p className="font-bold text-[0.875rem] text-[var(--color-text-primary)] flex items-center gap-1.5">
+              <ExternalLink size={14} className="text-[#34a853]" /> Google Drive Folder IDs (for PDF attachments)
+            </p>
+            <p className="text-[0.78rem] text-[var(--color-text-tertiary)] -mt-2 leading-relaxed">
+              Paste the folder ID from each Drive folder URL: /folders/<strong>FOLDER_ID</strong>.
+              Also enable the <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noreferrer" className="text-[var(--color-accent)] hover:underline font-medium">Google Drive API</a> and paste an API Key below.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field id="mailer-folder-letter" label="Letters Folder ID"
+                value={settings.mailer_folder_letter}
+                onChange={v => setSettings(s => ({ ...s, mailer_folder_letter: extractFolderId(v) }))}
+                placeholder="Paste folder URL or ID" hint="Folder containing Invitation Letter PDFs" />
+              <Field id="mailer-folder-card" label="Cards Folder ID"
+                value={settings.mailer_folder_card}
+                onChange={v => setSettings(s => ({ ...s, mailer_folder_card: extractFolderId(v) }))}
+                placeholder="Paste folder URL or ID" hint="Folder containing Invitation Card PDFs" />
+              <Field id="mailer-folder-itinerary" label="Itineraries Folder ID"
+                value={settings.mailer_folder_itinerary}
+                onChange={v => setSettings(s => ({ ...s, mailer_folder_itinerary: extractFolderId(v) }))}
+                placeholder="Paste folder URL or ID" hint="Folder containing Travel Itinerary PDFs" />
+              <Field id="mailer-folder-voucher" label="Hotel Vouchers Folder ID"
+                value={settings.mailer_folder_voucher}
+                onChange={v => setSettings(s => ({ ...s, mailer_folder_voucher: extractFolderId(v) }))}
+                placeholder="Paste folder URL or ID" hint="Folder containing Hotel Voucher PDFs" />
+              <div className="md:col-span-2">
+                <Field id="mailer-drive-api-key" label="Google Drive API Key"
+                  value={settings.mailer_drive_api_key}
+                  onChange={v => setSettings(s => ({ ...s, mailer_drive_api_key: v }))}
+                  placeholder="AIzaSy... (from Google Cloud Console)" hint="Required to list files from Drive folders. Create at console.cloud.google.com → APIs → Credentials." />
+              </div>
+            </div>
           </div>
         </div>
       </Section>
 
-      {/* ── Session Timeout ──────────────────────────────────────────────────── */}
+
       <Section
         isOpen={openSection === "session"}
         onToggle={() => toggle("session")}

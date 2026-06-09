@@ -59,6 +59,13 @@ export interface FolderConfig {
   error?: string;
 }
 
+export interface CustomAttachment {
+  fileName: string;
+  mimeType: string;
+  base64Data: string;
+  size: number;
+}
+
 export interface SendPayload {
   toEmail: string;
   recipientName: string;
@@ -76,6 +83,7 @@ export interface SendPayload {
   itineraryFileId: string;
   sendVoucher: boolean;
   voucherFileId: string;
+  customAttachments?: CustomAttachment[];
 }
 
 export interface MailerResult<T = unknown> {

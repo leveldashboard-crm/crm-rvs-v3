@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import {
   Mail, Upload, RefreshCw, AlertCircle, FileText,
-  Play, History, Loader2, ArrowRight, Eye, Send, Check, Info
+  Play, History, Loader2, ArrowRight, Eye, Send, Check, Info, Paperclip, X, File
 } from "lucide-react";
 import { parseCSV, detectColumns } from "@/lib/mailer/csv";
 import { fillTpl, TEMPLATE_VARIABLES } from "@/lib/mailer/template";
-import { DelegateMatch, Draft, FolderConfig, SendPayload } from "@/lib/mailer/types";
+import { DelegateMatch, Draft, FolderConfig, SendPayload, CustomAttachment } from "@/lib/mailer/types";
 
 interface MailerPortalProps {
   enabled: boolean;
@@ -46,6 +46,11 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
   const [draftBCC, setDraftBCC] = useState("");
   const [subjectOverride, setSubjectOverride] = useState("");
   const [htmlBodyOverride, setHtmlBodyOverride] = useState("");
+
+  // Custom Attachments State
+  const [customAttachments, setCustomAttachments] = useState<CustomAttachment[]>([]);
+  const [loadingAttachment, setLoadingAttachment] = useState(false);
+  const attachFileInputRef = useRef<HTMLInputElement>(null);
 
   // Sending progress
   const [sending, setSending] = useState(false);
@@ -378,6 +383,63 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
     return fillTpl(htmlBodyOverride, sampleFields);
   };
 
+  // Custom Attachment Handlers
+  const handleCustomAttachmentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setLoadingAttachment(true);
+    try {
+      for (const file of files) {
+        if (file.size > 8 * 1024 * 1024) {
+          toast.error(`${file.name} exceeds 8MB limit — skipped`);
+          continue;
+        }
+        const base64Data = await fileToBase64(file);
+        const attachment: CustomAttachment = {
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+          base64Data,
+          size: file.size
+        };
+        setCustomAttachments(prev => {
+          // Prevent duplicates by name
+          if (prev.find(a => a.fileName === file.name)) return prev;
+          return [...prev, attachment];
+        });
+      }
+      toast.success(`Attachment(s) added`);
+    } catch {
+      toast.error("Failed to process attachment");
+    } finally {
+      setLoadingAttachment(false);
+      if (attachFileInputRef.current) attachFileInputRef.current.value = "";
+    }
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove data URL prefix (data:mime;base64,)
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeCustomAttachment = (fileName: string) => {
+    setCustomAttachments(prev => prev.filter(a => a.fileName !== fileName));
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  };
+
   // Throttle helper
   const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -429,6 +491,7 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
         itineraryFileId: delegate.itinerary?.fileId || "",
         sendVoucher: docToggles.voucher && delegate.hasVoucher,
         voucherFileId: delegate.voucher?.fileId || "",
+        customAttachments: customAttachments.length > 0 ? customAttachments : undefined,
       };
 
       try {
@@ -869,7 +932,7 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
 
             {/* Document Send Toggles */}
             <div className="glass-card p-5 shadow-sm flex flex-col gap-3">
-              <h3 className="font-bold text-xs text-[var(--color-text-secondary)] uppercase tracking-wider">2. Attachment Toggles</h3>
+              <h3 className="font-bold text-xs text-[var(--color-text-secondary)] uppercase tracking-wider">2. Drive Document Attachments</h3>
               <div className="grid grid-cols-2 gap-3">
                 {([
                   { type: "letter", label: "Letter" },
@@ -892,6 +955,60 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
                     </label>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* Custom File Attachments */}
+            <div className="glass-card p-5 shadow-sm flex flex-col gap-3">
+              <h3 className="font-bold text-xs text-[var(--color-text-secondary)] uppercase tracking-wider flex items-center gap-1.5">
+                <Paperclip size={13} /> 3. Custom Attachments <span className="text-[var(--color-text-tertiary)] font-normal normal-case">(PDF, images, docs — max 8MB each)</span>
+              </h3>
+
+              {/* Uploaded custom attachments */}
+              {customAttachments.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  {customAttachments.map(att => (
+                    <div key={att.fileName} className="flex items-center justify-between p-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <File size={13} className="shrink-0 text-[var(--color-accent)]" />
+                        <span className="font-semibold text-[var(--color-text-primary)] truncate">{att.fileName}</span>
+                        <span className="text-[var(--color-text-tertiary)] shrink-0">{formatFileSize(att.size)}</span>
+                      </div>
+                      <button
+                        className="p-1 rounded text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-light)] transition-colors cursor-pointer shrink-0 ml-2"
+                        onClick={() => removeCustomAttachment(att.fileName)}
+                        title="Remove attachment"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div>
+                <input
+                  ref={attachFileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.txt,.csv"
+                  className="hidden"
+                  onChange={handleCustomAttachmentChange}
+                  disabled={sending || loadingAttachment}
+                />
+                <button
+                  className="btn-secondary py-2 px-4 text-xs font-semibold flex items-center gap-1.5 w-full justify-center"
+                  onClick={() => attachFileInputRef.current?.click()}
+                  disabled={sending || loadingAttachment}
+                >
+                  {loadingAttachment ? <Loader2 size={13} className="animate-spin" /> : <Paperclip size={13} />}
+                  {loadingAttachment ? "Processing..." : "Attach Files"}
+                </button>
+                {customAttachments.length > 0 && (
+                  <p className="text-[0.68rem] text-center text-[var(--color-text-tertiary)] mt-1">
+                    {customAttachments.length} custom file{customAttachments.length !== 1 ? "s" : ""} will be sent to all {totalSelected} selected delegate{totalSelected !== 1 ? "s" : ""}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -983,10 +1100,11 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
                     <div className="pt-2 border-t border-[var(--color-border)] mt-2">
                       Attachments Enabled:
                       <ul className="list-disc pl-5 mt-1 font-semibold text-[var(--color-text-primary)]">
-                        {docToggles.letter && <li>Invitation Letters</li>}
-                        {docToggles.card && <li>Invitation Cards</li>}
-                        {docToggles.itinerary && <li>Travel Itineraries</li>}
-                        {docToggles.voucher && <li>Hotel Vouchers</li>}
+                        {docToggles.letter && <li>Invitation Letters (Drive)</li>}
+                        {docToggles.card && <li>Invitation Cards (Drive)</li>}
+                        {docToggles.itinerary && <li>Travel Itineraries (Drive)</li>}
+                        {docToggles.voucher && <li>Hotel Vouchers (Drive)</li>}
+                        {customAttachments.map(a => <li key={a.fileName}>📎 {a.fileName} ({formatFileSize(a.size)})</li>)}
                       </ul>
                     </div>
                   </div>

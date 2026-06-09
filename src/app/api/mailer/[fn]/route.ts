@@ -12,6 +12,7 @@ async function requireAdmin() {
 }
 
 const ALLOWED = new Set([
+  "verifySmtp",
   "getFolderConfig",
   "buildIndex",
   "matchDelegates",
