@@ -18,8 +18,6 @@ async function ensureAuditSchema() {
   return;
 }
 
-let _opPermMigrated = true;
-
 /**
  * Enterprise-grade audit logger.
  * NEVER throws — audit failure must never break the main flow.

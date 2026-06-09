@@ -44,9 +44,10 @@ function LoginForm() {
         router.push(callbackUrl);
         router.refresh();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[Login] Client-side error:", err);
-      toast.error(`Something went wrong: ${err?.message || err}`);
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error(`Something went wrong: ${message}`);
     } finally {
       setIsPending(false);
     }
