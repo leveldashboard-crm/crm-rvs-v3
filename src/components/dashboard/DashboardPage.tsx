@@ -11,7 +11,8 @@ import {
   Upload, Download, FileText, RefreshCw, Lock, Trash2, CloudDownload,
   ShoppingCart,
 } from "lucide-react";
-import { computeKpis, pivotCount, generateGroupMessage, generateCountryGroupMessages, isVerified, type RegistrationRow } from "@/lib/crm-utils";
+import { computeKpis, pivotCount, generateGroupMessage, generateCountryGroupMessages, isVerified, normalizeCompany, type RegistrationRow } from "@/lib/crm-utils";
+
 import * as XLSX from "xlsx";
 
 // ─── Distinct Brand Logo SVG ──────────────────────────────────────────────────
@@ -127,17 +128,36 @@ export default function DashboardPage({ role }: DashboardPageProps) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [msg, setMsg] = useState("");
   const [tab, setTab] = useState<"table" | "groups" | "calls" | "excel">("table");
+  const [selectedSector, setSelectedSector] = useState<string>("all");
 
   const { data: callsData, isLoading: callsLoading } = useSWR<{
     logs: any[];
     stats: any[];
   }>(tab === "calls" ? "/api/v1/calls" : null, fetcher, { refreshInterval: 10000 });
 
-  const k = useMemo(() => computeKpis(rows), [rows]);
+  const filteredRows = useMemo(() => {
+    if (selectedSector === "all") return rows;
+    return rows.filter((r) => {
+      const sec = String(r.sector ?? r.main_import_product_1 ?? "").toLowerCase().trim();
+      const target = selectedSector.toLowerCase().trim();
+      if (target === "export") {
+        return sec.includes("export") || sec.includes("desk");
+      }
+      if (target === "bharat buildcon") {
+        return sec.includes("buildcon") || sec.includes("bharat");
+      }
+      if (target === "food pro") {
+        return sec.includes("food") || sec.includes("pro");
+      }
+      return sec.includes(target);
+    });
+  }, [rows, selectedSector]);
+
+  const k = useMemo(() => computeKpis(filteredRows), [filteredRows]);
   // Computed pivots from DB rows (used as fallback when sheet pivot is not configured)
-  const byCountry = useMemo(() => pivotCount(rows, (r) => r.country_name ?? r.passport_country), [rows]);
-  const byPoc     = useMemo(() => pivotCount(rows, (r) => r.poc), [rows]);
-  const byRegion  = useMemo(() => pivotCount(rows, (r) => r.region), [rows]);
+  const byCountry = useMemo(() => pivotCount(filteredRows, (r) => r.country_name ?? r.passport_country), [filteredRows]);
+  const byPoc     = useMemo(() => pivotCount(filteredRows, (r) => r.poc), [filteredRows]);
+  const byRegion  = useMemo(() => pivotCount(filteredRows, (r) => r.region), [filteredRows]);
 
   // For each dimension, prefer live sheet data; fall back to DB-computed
   const sheetOk        = sheetPivot.ok && sheetPivot.configured;
@@ -146,6 +166,22 @@ export default function DashboardPage({ role }: DashboardPageProps) {
   const byRegionFinal  = (sheetOk && sheetPivot.regionRows.length  > 0) ? sheetPivot.regionRows  : byRegion;
   const showGenericSheetPivot = sheetOk && sheetPivot.genericRows.length > 0;
 
+  // ─── Delegations Finalised & Companies with BL ───
+  const delegationsFinalised = useMemo(() => {
+    return filteredRows.filter((r) => (r.status ?? "").toLowerCase() === "confirmed").length;
+  }, [filteredRows]);
+
+  const companiesWithBl = useMemo(() => {
+    return new Set(
+      filteredRows
+        .filter((r) => {
+          const b = (r.bl_status ?? "").toLowerCase();
+          return b === "yes" || b === "received" || b === "true" || !!r.drive_proof_url || !!r.proof_upload;
+        })
+        .map((r) => normalizeCompany(r.company_name))
+        .filter(Boolean)
+    ).size;
+  }, [filteredRows]);
 
   // Sync live data from Google Sheet via GAS → upsert Neon
   const syncFromSheet = async () => {
@@ -170,11 +206,11 @@ export default function DashboardPage({ role }: DashboardPageProps) {
 
   const generate = useCallback(() => {
     const [y, m, d] = date.split("-").map(Number);
-    setMsg(generateGroupMessage(rows, new Date(y, m - 1, d)));
-  }, [rows, date]);
+    setMsg(generateGroupMessage(filteredRows, new Date(y, m - 1, d)));
+  }, [filteredRows, date]);
 
   const copy = async () => {
-    const text = msg || generateGroupMessage(rows, new Date(date));
+    const text = msg || generateGroupMessage(filteredRows, new Date(date));
     await navigator.clipboard.writeText(text);
     toast.success("Copied to clipboard");
   };
@@ -243,12 +279,12 @@ export default function DashboardPage({ role }: DashboardPageProps) {
       return;
     }
     const ws = XLSX.utils.json_to_sheet(
-      rows.map((r) => ({
+      filteredRows.map((r) => ({
         "Sr No": r.sr_no,
         "Name": [r.title, r.first_name, r.last_name].filter(Boolean).join(" "),
         "Country": r.country_name ?? r.passport_country,
         "Company": r.company_name,
-        "Sector": r.main_import_product_1,
+        "Sector": r.sector ?? r.main_import_product_1,
         "POC": r.poc,
         "Flight/Hotel": r.flight_hotel_code,
         "Status": r.status,
@@ -268,8 +304,8 @@ export default function DashboardPage({ role }: DashboardPageProps) {
     );
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Registrations");
-    XLSX.writeFile(wb, `DelegateConnect_Registrations_${date}.xlsx`);
-    toast.success("Excel exported");
+    XLSX.writeFile(wb, `DelegateConnect_Registrations_${selectedSector.replace(/\s+/g, "_")}_${date}.xlsx`);
+    toast.success(`Excel exported for ${selectedSector === "all" ? "All" : selectedSector}`);
   };
 
   // Clear ALL registrations (admin-only, double-confirmed)
@@ -297,6 +333,8 @@ export default function DashboardPage({ role }: DashboardPageProps) {
 
   const kpiData = [
     { label: "Total Registrations",                                   value: k.total,                                          icon: <Users size={20} />,        tone: "neutral", source: "reg"    },
+    { label: "Number of delegations finalised",                        value: delegationsFinalised,                             icon: <CheckCircle size={20} />,  tone: "good",    source: "reg"    },
+    { label: "Number of companies with BL",                            value: companiesWithBl,                                  icon: <Building2 size={20} />,    tone: "good",    source: "reg"    },
     // ── These 3 STRICTLY from DB & Vujis sheet (db_vujis_records) ──────────────
     { label: "Unique Companies",                                       value: vLoading ? k.uniqueCompanies : vujisUnique,        icon: <Building2 size={20} />,    tone: "neutral", source: "vujis"  },
     { label: "Verified",                                               value: vLoading ? k.verified        : vujisVerified,      icon: <CheckCircle size={20} />,  tone: "good",    source: "vujis"  },
@@ -313,10 +351,11 @@ export default function DashboardPage({ role }: DashboardPageProps) {
     { label: "Non-Ceramic",                                            value: k.nonCeramic,                                     icon: <Globe size={20} />,        tone: "neutral", source: "reg"    },
   ];
 
+
   const groups = useMemo(() => {
     const [y, m, d] = date.split("-").map(Number);
-    return generateCountryGroupMessages(rows, new Date(y, (m || 1) - 1, d || 1));
-  }, [rows, date]);
+    return generateCountryGroupMessages(filteredRows, new Date(y, (m || 1) - 1, d || 1));
+  }, [filteredRows, date]);
 
   return (
     <div className="p-6 md:p-8 max-w-[1400px] mx-auto animate-fade-in">
@@ -340,6 +379,20 @@ export default function DashboardPage({ role }: DashboardPageProps) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Sector Select Dropdown */}
+          <div className="flex items-center gap-2 mr-2">
+            <span className="text-[0.8rem] font-bold text-[var(--color-text-secondary)]">Sector:</span>
+            <select
+              value={selectedSector}
+              onChange={(e) => setSelectedSector(e.target.value)}
+              className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-[0.8125rem] font-medium text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+            >
+              <option value="all">All Sectors</option>
+              <option value="Bharat Buildcon">Bharat Buildcon</option>
+              <option value="Food Pro">Food Pro</option>
+              <option value="Export Sector">Export Sector</option>
+            </select>
+          </div>
           {isAdmin ? (
             <>
               <label style={{ cursor: "pointer" }}>
