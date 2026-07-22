@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { type V3Role, canViewSettings } from "@/lib/rbac";
+import ExcelLeadsSheet from "@/components/dashboard/ExcelLeadsSheet";
 import useSWR from "swr";
 import { toast } from "sonner";
 import Papa from "papaparse";
@@ -111,10 +113,12 @@ function useDbVujis() {
 }
 
 interface DashboardPageProps {
-  isAdmin: boolean;
+  role: V3Role;
 }
 
-export default function DashboardPage({ isAdmin }: DashboardPageProps) {
+export default function DashboardPage({ role }: DashboardPageProps) {
+  // Derive isAdmin from v3 role — Settings page is the highest admin gate
+  const isAdmin = canViewSettings(role);
   const { rows, isLoading, mutate } = useRegistrations();
   // Authoritative Vujis KPIs — strictly from db_vujis_records (same as Analytics page)
   const { uniqueCompanies: vujisUnique, verified: vujisVerified, notVerified: vujisNotVerified, vLoading } = useDbVujis();
@@ -122,7 +126,12 @@ export default function DashboardPage({ isAdmin }: DashboardPageProps) {
   const sheetPivot = useSheetPivot();
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [msg, setMsg] = useState("");
-  const [tab, setTab] = useState<"table" | "groups">("table");
+  const [tab, setTab] = useState<"table" | "groups" | "calls" | "excel">("table");
+
+  const { data: callsData, isLoading: callsLoading } = useSWR<{
+    logs: any[];
+    stats: any[];
+  }>(tab === "calls" ? "/api/v1/calls" : null, fetcher, { refreshInterval: 10000 });
 
   const k = useMemo(() => computeKpis(rows), [rows]);
   // Computed pivots from DB rows (used as fallback when sheet pivot is not configured)
@@ -454,28 +463,51 @@ export default function DashboardPage({ isAdmin }: DashboardPageProps) {
         />
       </div>
 
-      {/* Tab: Table | Country Groups */}
+      {/* Tab: Table | Country Groups | Call Activity | Excel Leads */}
       <div className="glass-card p-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4">
-          <h3 className="text-[1.05rem] font-bold tracking-tight">
-            {tab === "table" ? `Registered Delegates (${rows.length})` : `Country Groups (${groups.length})`}
+          <h3 className="text-[1.05rem] font-bold tracking-tight text-[var(--color-text-primary)]">
+            {tab === "table" 
+              ? `Registered Delegates (${rows.length})` 
+              : tab === "groups" 
+              ? `Country Groups (${groups.length})` 
+              : tab === "calls"
+              ? "Call Activity Tracker"
+              : "Excel Lead Sheet"}
           </h3>
           <div className="flex items-center gap-2">
-            <div className="tab-strip p-1 bg-[var(--color-border)]/50 rounded-xl">
-              <button className={`tab-item rounded-lg px-4 py-1.5 transition-all ${tab === "table" ? "active bg-[var(--color-surface)] shadow-sm font-semibold" : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"}`} onClick={() => setTab("table")}>
+            <div className="tab-strip p-1 bg-[var(--color-border)]/50 rounded-xl flex gap-1">
+              <button className={`tab-item rounded-lg px-4 py-1.5 transition-all ${tab === "table" ? "active bg-[var(--color-surface)] shadow-sm font-semibold text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"}`} onClick={() => setTab("table")}>
                 Table
               </button>
-              <button className={`tab-item rounded-lg px-4 py-1.5 transition-all ${tab === "groups" ? "active bg-[var(--color-surface)] shadow-sm font-semibold" : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"}`} onClick={() => setTab("groups")}>
+              <button className={`tab-item rounded-lg px-4 py-1.5 transition-all ${tab === "groups" ? "active bg-[var(--color-surface)] shadow-sm font-semibold text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"}`} onClick={() => setTab("groups")}>
                 Country Groups
+              </button>
+              <button className={`tab-item rounded-lg px-4 py-1.5 transition-all ${tab === "calls" ? "active bg-[var(--color-surface)] shadow-sm font-semibold text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"}`} onClick={() => setTab("calls")}>
+                Call Activity
+              </button>
+              <button className={`tab-item rounded-lg px-4 py-1.5 transition-all ${tab === "excel" ? "active bg-[var(--color-surface)] shadow-sm font-semibold text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"}`} onClick={() => setTab("excel")}>
+                Excel Leads
               </button>
             </div>
           </div>
         </div>
 
-        {tab === "table" ? (
+        {tab === "table" && (
           <RegistrationsTable rows={rows} isLoading={isLoading} isAdmin={isAdmin} onMutate={mutate} />
-        ) : (
+        )}
+        {tab === "groups" && (
           <CountryGroups groups={groups} date={date} />
+        )}
+        {tab === "calls" && (
+          <CallActivitySection
+            logs={callsData?.logs ?? []}
+            stats={callsData?.stats ?? []}
+            isLoading={callsLoading}
+          />
+        )}
+        {tab === "excel" && (
+          <ExcelLeadsSheet />
         )}
       </div>
     </div>
@@ -812,3 +844,225 @@ function CountryGroups({ groups, date }: { groups: { country: string; count: num
     </div>
   );
 }
+
+// ─── Call Activity Tracker Component ───────────────────────────────────────────
+function CallActivitySection({
+  logs,
+  stats,
+  isLoading,
+}: {
+  logs: any[];
+  stats: any[];
+  isLoading: boolean;
+}) {
+  const [search, setSearch] = useState("");
+  const [selectedCaller, setSelectedCaller] = useState<string | null>(null);
+
+  const filteredLogs = useMemo(() => {
+    let res = logs;
+    if (selectedCaller) {
+      res = res.filter((l) => l.callerEmail === selectedCaller);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      res = res.filter((l) =>
+        [l.callerName, l.callerEmail, l.delegateFirstName, l.delegateLastName, l.delegateCompany, l.notes]
+          .some((v) => String(v ?? "").toLowerCase().includes(q))
+      );
+    }
+    return res;
+  }, [logs, selectedCaller, search]);
+
+  const totalCallsCount = stats.reduce((acc, curr) => acc + curr.totalCalls, 0);
+  const totalCompletedCount = stats.reduce((acc, curr) => acc + curr.completedCalls, 0);
+  const totalDurationSeconds = stats.reduce((acc, curr) => acc + curr.totalDurationSeconds, 0);
+  const avgDurationSeconds = totalCallsCount > 0 ? Math.round(totalDurationSeconds / totalCallsCount) : 0;
+  const connectedRatio = totalCallsCount > 0 ? Math.round((totalCompletedCount / totalCallsCount) * 100) : 0;
+
+  const formatDuration = (sec: number) => {
+    const mins = Math.floor(sec / 60);
+    const remainingSec = sec % 60;
+    return `${mins}m ${remainingSec}s`;
+  };
+
+  return (
+    <div className="flex flex-col gap-6 mt-2">
+      {/* Overview Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-4 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-2xl flex flex-col gap-1.5 shadow-sm">
+          <span className="text-2xl font-black text-[var(--color-text-primary)]">{totalCallsCount}</span>
+          <span className="text-xs text-[var(--color-text-secondary)] font-medium">Total Calls Attempted</span>
+        </div>
+        <div className="p-4 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-2xl flex flex-col gap-1.5 shadow-sm">
+          <span className="text-2xl font-black text-[var(--color-success)]">{connectedRatio}%</span>
+          <span className="text-xs text-[var(--color-text-secondary)] font-medium">Connection Rate</span>
+        </div>
+        <div className="p-4 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-2xl flex flex-col gap-1.5 shadow-sm">
+          <span className="text-2xl font-black text-[var(--color-accent)]">{formatDuration(totalDurationSeconds)}</span>
+          <span className="text-xs text-[var(--color-text-secondary)] font-medium">Total Talk Time</span>
+        </div>
+        <div className="p-4 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-2xl flex flex-col gap-1.5 shadow-sm">
+          <span className="text-2xl font-black text-[var(--color-text-primary)]">{formatDuration(avgDurationSeconds)}</span>
+          <span className="text-xs text-[var(--color-text-secondary)] font-medium">Avg Call Duration</span>
+        </div>
+      </div>
+
+      {/* Main Grid split */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Left Side: Caller Stats Table */}
+        <div className="lg:col-span-5 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-bold text-[var(--color-text-primary)]">Caller Activity Standings</h4>
+            {selectedCaller && (
+              <button 
+                onClick={() => setSelectedCaller(null)}
+                className="text-xs font-semibold text-[var(--color-accent)] hover:underline"
+              >
+                Clear Filter
+              </button>
+            )}
+          </div>
+          <div className="border border-[var(--color-border)] rounded-xl overflow-hidden shadow-sm bg-[var(--color-surface)]">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Caller</th>
+                  <th className="text-center">Calls</th>
+                  <th className="text-center">Connected</th>
+                  <th className="text-right">Talk Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading && (
+                  <tr><td colSpan={4} className="text-center py-4 text-xs text-[var(--color-text-tertiary)]">Loading Stats…</td></tr>
+                )}
+                {!isLoading && stats.length === 0 && (
+                  <tr><td colSpan={4} className="text-center py-4 text-xs text-[var(--color-text-tertiary)]">No caller records found.</td></tr>
+                )}
+                {stats.map((s) => (
+                  <tr 
+                    key={s.callerEmail} 
+                    className={`cursor-pointer hover:bg-[var(--color-bg-primary)]/50 transition-colors ${selectedCaller === s.callerEmail ? "bg-[var(--color-accent-light)]/20 border-l-4 border-l-[var(--color-accent)]" : ""}`}
+                    onClick={() => setSelectedCaller(selectedCaller === s.callerEmail ? null : s.callerEmail)}
+                  >
+                    <td>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-[var(--color-text-primary)] text-sm">{s.callerName || "Unknown Caller"}</span>
+                        <span className="text-[10px] text-[var(--color-text-tertiary)]">{s.callerEmail}</span>
+                      </div>
+                    </td>
+                    <td className="text-center font-semibold text-sm">{s.totalCalls}</td>
+                    <td className="text-center">
+                      <span className="text-xs font-medium text-[var(--color-success)]">{s.completedCalls}</span>
+                      <span className="text-[10px] text-[var(--color-text-tertiary)] ml-1">({s.totalCalls > 0 ? Math.round((s.completedCalls / s.totalCalls) * 100) : 0}%)</span>
+                    </td>
+                    <td className="text-right text-xs font-mono font-medium">{formatDuration(s.totalDurationSeconds)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Right Side: Detailed Call Logs */}
+        <div className="lg:col-span-7 flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h4 className="text-sm font-bold text-[var(--color-text-primary)]">
+              {selectedCaller ? `Calls by ${stats.find(s => s.callerEmail === selectedCaller)?.callerName || selectedCaller}` : "Real-time Call Log Feed"}
+            </h4>
+            <input
+              type="search"
+              placeholder="Search caller, delegate, or notes…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input text-xs py-1.5 w-full sm:w-64 bg-[var(--color-bg-primary)] border-[var(--color-border)] focus:bg-[var(--color-surface)] shadow-sm"
+            />
+          </div>
+
+          <div className="flex flex-col gap-3 max-h-[550px] overflow-y-auto custom-scrollbar pr-1">
+            {isLoading && (
+              <div className="text-center py-8 text-xs text-[var(--color-text-tertiary)]">Loading Call Logs…</div>
+            )}
+            {!isLoading && filteredLogs.length === 0 && (
+              <div className="text-center py-8 text-xs text-[var(--color-text-tertiary)] border border-[var(--color-border)] border-dashed rounded-xl bg-[var(--color-surface)]">
+                No matching call logs found.
+              </div>
+            )}
+            {filteredLogs.map((log) => {
+              const delegateName = [log.delegateFirstName, log.delegateLastName].filter(Boolean).join(" ") || "Unknown Delegate";
+              return (
+                <div key={log.id} className="border border-[var(--color-border)] rounded-xl p-4 bg-[var(--color-surface)] shadow-sm flex flex-col gap-2.5 transition-all hover:shadow-md">
+                  {/* Log Header */}
+                  <div className="flex justify-between items-start flex-wrap gap-2">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-sm text-[var(--color-text-primary)]">{delegateName}</span>
+                        {log.delegateCountry && (
+                          <span className="text-[10px] bg-[var(--color-border)]/50 text-[var(--color-text-secondary)] font-bold px-1.5 py-0.5 rounded">
+                            {log.delegateCountry}
+                          </span>
+                        )}
+                        {log.delegateCompany && (
+                          <span className="text-[10px] text-[var(--color-text-tertiary)] font-medium max-w-[150px] truncate" title={log.delegateCompany}>
+                            ({log.delegateCompany})
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-[var(--color-text-tertiary)] font-medium mt-0.5">
+                        Called by <strong className="text-[var(--color-text-secondary)]">{log.callerName}</strong> ({log.callerEmail})
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className={`badge text-[10px] font-bold py-0.5 ${
+                        log.status === "completed" 
+                          ? "badge-success border border-[var(--color-success)]/10" 
+                          : log.status === "no_answer"
+                          ? "badge-neutral border border-[var(--color-border)] bg-gray-100 text-gray-700"
+                          : log.status === "busy"
+                          ? "badge-danger border border-[var(--color-danger)]/10 bg-amber-100 text-amber-800"
+                          : "badge-danger border border-[var(--color-danger)]/10"
+                      }`}>
+                        {String(log.status || "").toUpperCase().replace("_", " ")}
+                      </span>
+                      <span className="text-[9px] text-[var(--color-text-tertiary)] font-semibold">
+                        {new Date(log.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Call Note */}
+                  {log.notes && (
+                    <p className="text-xs text-[var(--color-text-secondary)] italic bg-[var(--color-bg-primary)] p-2.5 rounded-lg border border-[var(--color-border)]/60 leading-relaxed">
+                      &ldquo;{log.notes}&rdquo;
+                    </p>
+                  )}
+
+                  {/* Audio Player and Duration info */}
+                  <div className="flex items-center justify-between gap-4 flex-wrap mt-1">
+                    <span className="text-[10px] font-mono text-[var(--color-text-tertiary)]">
+                      Duration: <strong>{formatDuration(log.durationSeconds ?? 0)}</strong>
+                    </span>
+                    {log.recordingUrl && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-bold text-[var(--color-accent)]">Recording:</span>
+                        <audio 
+                          src={log.recordingUrl} 
+                          controls 
+                          className="h-6 w-48 scale-90 origin-right rounded-lg"
+                          style={{ outline: "none" }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+

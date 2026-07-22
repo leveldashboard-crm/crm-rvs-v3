@@ -67,6 +67,16 @@ type AppSettings = {
   mailer_folder_itinerary: string;
   mailer_folder_voucher: string;
   mailer_drive_api_key: string;
+  // v3 additions
+  event_id: string;
+  event_name: string;
+  feature_flag_gamification: boolean;
+  feature_flag_whatsapp: boolean;
+  feature_flag_sms: boolean;
+  feature_flag_ai_scoring: boolean;
+  escalation_level1_hours: number;
+  escalation_level2_hours: number;
+  notifications_enabled: boolean;
 };
 
 type StaffUser = {
@@ -82,13 +92,23 @@ type EditUserForm = { id: number; name: string; role: string; password: string }
 
 // ─── Constants (outside component) ───────────────────────────────────────────
 const ROLES = [
-  { value: "admin",      label: "Admin",      desc: "Full access + user management" },
-  { value: "supervisor", label: "Supervisor", desc: "Reports + CRM + Travel Desk"   },
-  { value: "user",       label: "User",       desc: "Data Entry & Chat only"        },
+  { value: "master_admin",   label: "Master Admin",   desc: "Global systems, settings, database management" },
+  { value: "regional_admin", label: "Regional Admin", desc: "Multi-continent scope, mailer, user management" },
+  { value: "team_lead",      label: "Team Lead",      desc: "Assign tasks, view QA scores, performance dashboard" },
+  { value: "caller",         label: "Caller",         desc: "Lead calls, travel records input, break toggle" },
+  { value: "qa_auditor",      label: "QA Auditor",     desc: "Submit call QA rubric scores, audit call logs" },
+  { value: "analyst",        label: "Analyst",        desc: "Read-only analytics dashboards, no delegate PII access" },
 ];
 
 const ROLE_COLOR: Record<string, string> = {
-  admin: "#ff3b30", supervisor: "#0071e3", user: "#34c759",
+  master_admin:   "#7c3aed",
+  regional_admin:  "#0071e3",
+  team_lead:       "#0891b2",
+  caller:          "#1d9a50",
+  qa_auditor:      "#d97706",
+  analyst:         "#6e6e73",
+  // Legacy mappings for styling
+  admin: "#7c3aed", supervisor: "#0071e3", user: "#1d9a50", staff: "#1d9a50",
 };
 
 // ─── Sub-components OUTSIDE main component (critical for focus stability) ─────
@@ -186,6 +206,16 @@ export default function SettingsPage() {
     mailer_folder_itinerary: "",
     mailer_folder_voucher: "",
     mailer_drive_api_key: "",
+    // v3 default settings
+    event_id: "bharat_buildcon_2026",
+    event_name: "Bharat Buildcon 2026",
+    feature_flag_gamification: false,
+    feature_flag_whatsapp: false,
+    feature_flag_sms: false,
+    feature_flag_ai_scoring: true,
+    escalation_level1_hours: 2,
+    escalation_level2_hours: 6,
+    notifications_enabled: true,
   });
 
   const [testingMailer, setTestingMailer] = useState(false);
@@ -737,6 +767,16 @@ export default function SettingsPage() {
           mailer_folder_itinerary: s.mailer_folder_itinerary ?? "",
           mailer_folder_voucher: s.mailer_folder_voucher ?? "",
           mailer_drive_api_key: s.mailer_drive_api_key ?? "",
+          // v3 settings
+          event_id: s.event_id ?? "bharat_buildcon_2026",
+          event_name: s.event_name ?? "Bharat Buildcon 2026",
+          feature_flag_gamification: !!s.feature_flag_gamification,
+          feature_flag_whatsapp: !!s.feature_flag_whatsapp,
+          feature_flag_sms: !!s.feature_flag_sms,
+          feature_flag_ai_scoring: s.feature_flag_ai_scoring !== false,
+          escalation_level1_hours: parseInt(s.escalation_level1_hours ?? "2") || 2,
+          escalation_level2_hours: parseInt(s.escalation_level2_hours ?? "6") || 6,
+          notifications_enabled: s.notifications_enabled !== false,
         };
         setSettings(loaded);
         // Auto-verify silently on load if GAS URL is already configured

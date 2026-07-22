@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BB2026 · Delegate Email System</title>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#1a3a6b; --navy2:#0f2447; --teal:#0d7a5f; --gold:#c8a84b;
+  --gold2:#b8942b; --bg:#f0f2f5; --card:#fff; --border:#dde1e9;
+  --text:#1a2340; --muted:#6b7591; --danger:#c0392b; --success:#0d7a5f;
+  --warn:#d4820a; --radius:10px;
+  --shadow:0 2px 12px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.05);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.12),0 2px 8px rgba(0,0,0,.06);
+}
+html{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+a{color:var(--navy)}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:14px}
+
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+.app{min-height:100vh;display:flex;flex-direction:column}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.header{background:linear-gradient(135deg,var(--navy2) 0%,var(--navy) 55%,var(--teal) 100%);
+  padding:0 28px;display:flex;align-items:center;justify-content:space-between;
+  min-height:64px;box-shadow:0 2px 16px rgba(0,0,0,.25)}
+.header-brand{display:flex;align-items:center;gap:14px}
+.header-logo{width:40px;height:40px;background:rgba(255,255,255,.15);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:20px;border:1px solid rgba(255,255,255,.25)}
+.header-title{color:#fff}
+.header-title h1{font-size:17px;font-weight:700;letter-spacing:-.3px}
+.header-title p{font-size:11px;color:rgba(255,255,255,.65);margin-top:1px}
+.header-status{display:flex;align-items:center;gap:8px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#aaa}
+.status-dot.ready{background:#2ecc71}
+.status-dot.error{background:#e74c3c}
+.status-text{color:rgba(255,255,255,.75);font-size:12px}
+
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.tabs{background:var(--navy);display:flex;overflow-x:auto;border-bottom:3px solid var(--gold)}
+.tabs::-webkit-scrollbar{height:0}
+.tab-btn{padding:13px 22px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;
+  border:none;background:transparent;cursor:pointer;white-space:nowrap;
+  border-bottom:3px solid transparent;margin-bottom:-3px;transition:all .18s;letter-spacing:.01em}
+.tab-btn:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.07)}
+.tab-btn.active{color:#fff;border-bottom-color:var(--gold);background:rgba(255,255,255,.1);font-weight:600}
+
+/* ── Main Content ────────────────────────────────────────────────────────── */
+.content{flex:1;padding:24px;max-width:1100px;width:100%;margin:0 auto}
+.panel{display:none}
+.panel.active{display:block}
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);
+  box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden}
+.card-header{padding:16px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;background:#fafbfd}
+.card-header h2{font-size:15px;font-weight:600;color:var(--navy);display:flex;align-items:center;gap:8px}
+.card-body{padding:20px}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;
+  border-radius:7px;font-size:13px;font-weight:600;border:none;cursor:pointer;
+  transition:all .15s;letter-spacing:.01em;text-decoration:none}
+.btn-primary{background:var(--navy);color:#fff}
+.btn-primary:hover{background:var(--navy2);box-shadow:0 4px 12px rgba(26,58,107,.35)}
+.btn-teal{background:var(--teal);color:#fff}
+.btn-teal:hover{background:#0a6650;box-shadow:0 4px 12px rgba(13,122,95,.35)}
+.btn-gold{background:var(--gold);color:#fff}
+.btn-gold:hover{background:var(--gold2)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{background:#a93226}
+.btn-outline{background:transparent;color:var(--navy);border:1.5px solid var(--navy)}
+.btn-outline:hover{background:var(--navy);color:#fff}
+.btn-sm{padding:6px 13px;font-size:12px;border-radius:6px}
+.btn-lg{padding:12px 26px;font-size:14px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── Forms ───────────────────────────────────────────────────────────────── */
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:12px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.form-control{width:100%;padding:9px 12px;border:1.5px solid var(--border);
+  border-radius:7px;font-size:14px;color:var(--text);background:#fff;
+  transition:border-color .15s,box-shadow .15s;outline:none}
+.form-control:focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(26,58,107,.12)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-row.three{grid-template-columns:1fr 1fr 1fr}
+select.form-control{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7591' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;padding-right:32px}
+
+/* ── Config Table ────────────────────────────────────────────────────────── */
+.cfg-table{width:100%;border-collapse:separate;border-spacing:0 6px}
+.cfg-table td{padding:8px 12px;vertical-align:middle}
+.cfg-table td:first-child{font-size:12px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.04em;width:220px;padding-right:0}
+.cfg-table td:nth-child(2){color:var(--text-muted);font-size:12px;padding-left:6px;padding-right:12px;width:12px;opacity:.4}
+.cfg-table .cfg-val{width:100%}
+.cfg-section-label{font-size:11px;font-weight:700;color:var(--gold2);
+  text-transform:uppercase;letter-spacing:.07em;padding:14px 0 4px;border-bottom:1px solid var(--border)}
+
+/* ── Delegates Table ─────────────────────────────────────────────────────── */
+.delegates-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+  padding:14px 20px;background:#fafbfd;border-bottom:1px solid var(--border)}
+.filter-strip{display:flex;gap:6px}
+.filter-btn{padding:5px 13px;border-radius:20px;font-size:12px;font-weight:600;
+  border:1.5px solid var(--border);background:#fff;color:var(--muted);cursor:pointer;transition:all .15s}
+.filter-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.search-box{padding:7px 12px;border:1.5px solid var(--border);border-radius:7px;
+  font-size:13px;outline:none;width:200px;transition:border-color .15s}
+.search-box:focus{border-color:var(--navy)}
+.tbl-wrap{overflow-x:auto;max-height:480px;overflow-y:auto}
+.tbl-wrap::-webkit-scrollbar{width:6px;height:6px}
+.tbl-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+table.dtbl{width:100%;border-collapse:collapse;font-size:13px}
+table.dtbl thead{position:sticky;top:0;z-index:5}
+table.dtbl th{padding:10px 14px;background:var(--navy);color:#fff;font-weight:600;
+  font-size:11px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;text-align:left}
+table.dtbl th:first-child{width:38px;border-radius:0}
+table.dtbl td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.dtbl tr:last-child td{border-bottom:none}
+table.dtbl tr:hover td{background:#f5f7fd}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;
+  border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.02em}
+.badge-green{background:#e6f7f2;color:var(--teal)}
+.badge-red{background:#fbeaea;color:var(--danger)}
+.badge-gray{background:#eef0f6;color:var(--muted)}
+.badge-blue{background:#eaf0fb;color:var(--navy)}
+.badge-gold{background:#fdf6e3;color:var(--gold2)}
+.check-all{cursor:pointer;width:16px;height:16px;accent-color:var(--navy)}
+.row-check{cursor:pointer;width:16px;height:16px;accent-color:var(--navy)}
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-state .icon{font-size:40px;margin-bottom:10px}
+.empty-state p{font-size:14px}
+
+/* ── Upload Drop Area ────────────────────────────────────────────────────── */
+.drop-zone{border:2.5px dashed var(--border);border-radius:10px;padding:36px 24px;
+  text-align:center;cursor:pointer;transition:all .18s;background:#fafbfd}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--navy);background:#f0f4fb}
+.drop-zone .dz-icon{font-size:36px;margin-bottom:10px}
+.drop-zone h3{font-size:15px;font-weight:600;color:var(--navy);margin-bottom:6px}
+.drop-zone p{font-size:13px;color:var(--muted)}
+.drop-zone input[type=file]{display:none}
+
+/* ── Match Report ────────────────────────────────────────────────────────── */
+.match-report{margin-top:18px;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+.match-section{padding:12px 16px}
+.match-section h4{font-size:12px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;margin-bottom:8px}
+.match-section.ok{background:#e6f7f2}.match-section.ok h4{color:var(--teal)}
+.match-section.err{background:#fbeaea}.match-section.err h4{color:var(--danger)}
+.match-list{list-style:none;display:flex;flex-direction:column;gap:4px}
+.match-list li{font-size:12px;padding:4px 8px;border-radius:4px;background:rgba(255,255,255,.6)}
+
+/* ── CSV Preview ─────────────────────────────────────────────────────────── */
+.preview-wrap{max-height:280px;overflow-y:auto;border:1px solid var(--border);
+  border-radius:8px;margin-top:14px}
+.preview-wrap table{width:100%;border-collapse:collapse;font-size:12px}
+.preview-wrap th{background:#f0f2f5;padding:7px 10px;font-size:11px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--border);position:sticky;top:0}
+.preview-wrap td{padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text)}
+.preview-wrap tr:last-child td{border-bottom:none}
+
+/* ── Divider ─────────────────────────────────────────────────────────────── */
+.divider{height:1px;background:var(--border);margin:20px 0}
+
+/* ── Info Box ────────────────────────────────────────────────────────────── */
+.info-box{padding:12px 16px;border-radius:8px;font-size:13px;line-height:1.6;
+  display:flex;gap:10px;align-items:flex-start;margin-bottom:16px}
+.info-box.blue{background:#eaf0fb;border-left:4px solid var(--navy);color:#1a2340}
+.info-box.yellow{background:#fdf6e3;border-left:4px solid var(--gold);color:#5c3d00}
+.info-box.red{background:#fbeaea;border-left:4px solid var(--danger);color:#6b0c0c}
+.info-box.green{background:#e6f7f2;border-left:4px solid var(--teal);color:#0a3d2e}
+
+/* ── Send Summary ────────────────────────────────────────────────────────── */
+.send-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+.sum-card{padding:16px;border-radius:8px;text-align:center;border:1px solid var(--border)}
+.sum-card .num{font-size:28px;font-weight:800;margin-bottom:2px}
+.sum-card .lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.sum-card.green{background:#e6f7f2}.sum-card.green .num{color:var(--teal)}
+.sum-card.red{background:#fbeaea}.sum-card.red .num{color:var(--danger)}
+.sum-card.gray{background:#f5f5f7}.sum-card.gray .num{color:var(--muted)}
+
+/* ── Template Editor ─────────────────────────────────────────────────────── */
+textarea.template-editor{width:100%;height:340px;font-family:'Courier New',monospace;
+  font-size:12.5px;line-height:1.7;padding:14px;border:1.5px solid var(--border);
+  border-radius:8px;outline:none;resize:vertical;color:var(--text);background:#fafbfd}
+textarea.template-editor:focus{border-color:var(--navy)}
+
+/* ── Token Pills ─────────────────────────────────────────────────────────── */
+.token-pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.token-pill{padding:4px 10px;background:#eaf0fb;color:var(--navy);border-radius:20px;
+  font-size:11px;font-weight:700;font-family:monospace;cursor:pointer;
+  border:1px solid rgba(26,58,107,.2);transition:background .12s}
+.token-pill:hover{background:var(--navy);color:#fff}
+
+/* ── Toast ───────────────────────────────────────────────────────────────── */
+.toast-container{position:fixed;bottom:24px;right:24px;z-index:9999;
+  display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.toast{padding:13px 18px;border-radius:9px;font-size:13px;font-weight:500;
+  color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.2);pointer-events:auto;
+  max-width:340px;display:flex;align-items:flex-start;gap:10px;
+  animation:slideUp .25s ease forwards}
+.toast.success{background:#0d7a5f}
+.toast.error{background:#c0392b}
+.toast.warn{background:#d4820a}
+.toast.info{background:var(--navy)}
+.toast-close{margin-left:auto;opacity:.7;cursor:pointer;font-size:16px;line-height:1;flex-shrink:0}
+.toast-close:hover{opacity:1}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+.spinner{display:inline-block;width:16px;height:16px;border:2.5px solid rgba(255,255,255,.35);
+  border-top-color:currentColor;border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{display:none;position:fixed;inset:0;background:rgba(255,255,255,.75);
+  z-index:9000;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+.loading-overlay.show{display:flex}
+.loading-spinner{width:44px;height:44px;border:5px solid var(--border);
+  border-top-color:var(--navy);border-radius:50%;animation:spin .7s linear infinite}
+.loading-overlay p{font-size:14px;color:var(--navy);font-weight:600}
+
+/* ── Misc ────────────────────────────────────────────────────────────────── */
+.page-intro{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:20px}
+.sel-count{font-size:13px;font-weight:600;color:var(--navy)}
+.row-id{font-family:monospace;font-size:11px;color:var(--muted)}
+.sent-mode-hdr{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.sent-mode-hdr h2{font-size:18px;font-weight:700;color:var(--navy)}
+.error-list{list-style:none;display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.error-list li{font-size:12px;padding:8px 12px;background:#fbeaea;border-radius:6px;color:#6b0c0c}
+@media(max-width:680px){.form-row{grid-template-columns:1fr}.form-row.three{grid-template-columns:1fr}
+  .send-summary{grid-template-columns:1fr 1fr}.content{padding:14px}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── Header ──────────────────────────────────────────────────────────────── -->
+<div class="header">
+  <div class="header-brand">
+    <div class="header-logo">✉️</div>
+    <div class="header-title">
+      <h1>Bharat Buildcon 2026</h1>
+      <p>Delegate Email System · Operator Portal</p>
+    </div>
+  </div>
+  <div class="header-status">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">Connecting…</span>
+  </div>
+</div>
+
+<!-- ── Tabs ────────────────────────────────────────────────────────────────── -->
+<div class="tabs">
+  <button class="tab-btn active" data-tab="setup">🛠 Setup & Config</button>
+  <button class="tab-btn" data-tab="delegates">👥 Delegates</button>
+  <button class="tab-btn" data-tab="files">📎 Upload Files</button>
+  <button class="tab-btn" data-tab="mode1">✉️ Mode 1 · Attachments</button>
+  <button class="tab-btn" data-tab="mode2">📧 Mode 2 · HTML Blast</button>
+</div>
+
+<!-- ── Content ─────────────────────────────────────────────────────────────── -->
+<div class="content">
+
+<!-- ════════════════════ SETUP PANEL ════════════════════ -->
+<div class="panel active" id="panel-setup">
+  <div class="card">
+    <div class="card-header">
+      <h2>🛠 Initialise System</h2>
+    </div>
+    <div class="card-body">
+      <div class="info-box blue">
+        <span>ℹ️</span>
+        <div><strong>First-time setup:</strong> Click Initialise to auto-create the Google Sheet, Drive folder, and Vouchers subfolder under your sending account. Safe to run multiple times — skips already-created resources.</div>
+      </div>
+      <button class="btn btn-primary btn-lg" id="btnInit">
+        <span>🚀</span> Initialise
+      </button>
+      <div id="initResult" style="margin-top:16px"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>⚙️ Configuration</h2>
+      <button class="btn btn-sm btn-teal" id="btnSaveCfg">💾 Save Config</button>
+    </div>
+    <div class="card-body">
+      <p class="page-intro">Edit these values to configure the system. Click <strong>Save Config</strong> when done. <code>SHEET_ID</code> is auto-set by Initialise.</p>
+
+      <table class="cfg-table" id="cfgTable">
+        <tr class="cfg-section-label"><td colspan="3">📬 Email Settings</td></tr>
+        <tr><td>SENDER_EMAIL</td><td>→</td><td><input class="form-control cfg-val" data-key="SENDER_EMAIL" placeholder="your-sender@gmail.com"></td></tr>
+        <tr class="cfg-section-label"><td colspan="3">📄 File IDs</td></tr>
+        <tr><td>ITINERARY_FILE_ID</td><td>→</td><td><input class="form-control cfg-val" data-key="ITINERARY_FILE_ID" placeholder="Auto-set on itinerary upload"></td></tr>
+        <tr><td>VOUCHER_FOLDER_ID</td><td>→</td><td><input class="form-control cfg-val" data-key="VOUCHER_FOLDER_ID" placeholder="Auto-set by Initialise"></td></tr>
+        <tr><td>SHEET_ID</td><td>→</td><td><input class="form-control cfg-val" data-key="SHEET_ID" placeholder="Auto-set by Initialise"></td></tr>
+        <tr class="cfg-section-label"><td colspan="3">✉️ Email Content</td></tr>
+        <tr><td>MODE1_BODY_FOOTER</td><td>→</td><td><textarea class="form-control cfg-val" data-key="MODE1_BODY_FOOTER" rows="3" placeholder="Footer text for Mode 1 emails…"></textarea></td></tr>
+        <tr><td>MODE2_SUBJECT</td><td>→</td><td><input class="form-control cfg-val" data-key="MODE2_SUBJECT" placeholder="Email subject for Mode 2"></td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ DELEGATES PANEL ════════════════════ -->
+<div class="panel" id="panel-delegates">
+  <!-- Add / Import -->
+  <div class="card">
+    <div class="card-header">
+      <h2>➕ Add Delegates</h2>
+    </div>
+    <div class="card-body">
+      <!-- CSV Import -->
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--navy)">📥 Import from CSV</h3>
+      <div class="info-box yellow" style="margin-bottom:12px">
+        <span>📋</span>
+        <div>CSV must have columns: <code>prefix, first_name, last_name, email, organisation</code> (header row required). Duplicates by email are skipped.</div>
+      </div>
+      <div class="drop-zone" id="csvDropZone">
+        <input type="file" id="csvFileInput" accept=".csv,.tsv">
+        <div class="dz-icon">📊</div>
+        <h3>Drop CSV file here or click to browse</h3>
+        <p>Supported: .csv, .tsv</p>
+      </div>
+      <div id="csvPreview" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px">
+          <span id="csvPreviewCount" style="font-weight:600;color:var(--navy)"></span>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm btn-outline" id="btnCsvCancel">✕ Cancel</button>
+            <button class="btn btn-sm btn-teal" id="btnCsvImport">✓ Confirm Import</button>
+          </div>
+        </div>
+        <div class="preview-wrap" id="csvPreviewTable"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Manual Entry -->
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--navy)">✏️ Manual Entry</h3>
+      <form id="addDelegateForm">
+        <div class="form-row three">
+          <div class="form-group">
+            <label class="form-label">Prefix</label>
+            <select class="form-control" id="addPrefix">
+              <option value="">— none —</option>
+              <option>Mr</option><option>Ms</option><option>Dr</option>
+              <option>Prof</option><option>Mrs</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">First Name *</label>
+            <input class="form-control" id="addFirst" placeholder="John" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name *</label>
+            <input class="form-control" id="addLast" placeholder="Smith" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Email *</label>
+            <input class="form-control" type="email" id="addEmail" placeholder="john.smith@company.com" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Organisation</label>
+            <input class="form-control" id="addOrg" placeholder="Company Pvt. Ltd.">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">➕ Add Delegate</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delegate List -->
+  <div class="card">
+    <div class="card-header">
+      <h2 id="delegateCount">👥 Delegates</h2>
+      <button class="btn btn-sm btn-outline" id="btnRefreshDelegates">🔄 Refresh</button>
+    </div>
+    <div class="delegates-toolbar">
+      <input type="search" class="search-box" id="delegateSearch" placeholder="Search name, email…">
+      <div class="filter-strip">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="matched">✓ Voucher Matched</button>
+        <button class="filter-btn" data-filter="unmatched">✗ Not Matched</button>
+        <button class="filter-btn" data-filter="unsent">📬 Not Sent</button>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="dtbl">
+        <thead>
+          <tr>
+            <th><input type="checkbox" class="check-all" id="delegatesCheckAll" title="Select all visible"></th>
+            <th>ID</th><th>Name</th><th>Email</th><th>Organisation</th>
+            <th>Voucher</th><th>Mode 1</th><th>Mode 2</th><th>Last Sent</th>
+          </tr>
+        </thead>
+        <tbody id="delegatesTbody">
+          <tr><td colspan="9" class="empty-state"><div class="icon">📋</div><p>Loading delegates…</p></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ FILES PANEL ════════════════════ -->
+<div class="panel" id="panel-files">
+  <!-- Itinerary Upload -->
+  <div class="card">
+    <div class="card-header">
+      <h2>📄 Itinerary Upload</h2>
+      <div id="itineraryStatus" style="font-size:12px;color:var(--muted)">Not uploaded</div>
+    </div>
+    <div class="card-body">
+      <div class="info-box blue" style="margin-bottom:14px">
+        <span>ℹ️</span>
+        <div>Upload the <strong>single itinerary document</strong> (PDF or DOCX) that will be attached to all Mode 1 emails. The file is saved in Drive as <code>itinerary.pdf</code> (or .docx). Re-uploading replaces the previous file.</div>
+      </div>
+      <div class="drop-zone" id="itinDropZone">
+        <input type="file" id="itinFileInput" accept=".pdf,.docx,.doc">
+        <div class="dz-icon">📄</div>
+        <h3>Drop itinerary file here or click to browse</h3>
+        <p>Accepted: PDF, DOCX, DOC</p>
+      </div>
+      <div id="itinPreview" style="display:none;margin-top:14px">
+        <div class="info-box green" id="itinPreviewBox"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-sm btn-outline" id="btnItinCancel">✕ Cancel</button>
+          <button class="btn btn-sm btn-teal" id="btnItinUpload">☁️ Upload Itinerary</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Voucher Upload -->
+  <div class="card">
+    <div class="card-header">
+      <h2>🏨 Hotel Voucher Upload</h2>
+    </div>
+    <div class="card-body">
+      <div class="info-box yellow" style="margin-bottom:14px">
+        <span>📋</span>
+        <div>
+          Each file must be named <strong>exactly as the delegate's full name</strong>:<br>
+          <code>Prefix FirstName LastName.pdf</code> — e.g. <code>Mr John Smith.pdf</code><br>
+          The system matches filename (without extension) to <code>prefix + first_name + last_name</code> in the sheet.
+        </div>
+      </div>
+      <div class="drop-zone" id="voucherDropZone">
+        <input type="file" id="voucherFileInput" accept=".pdf,.docx,.doc" multiple>
+        <div class="dz-icon">🏨</div>
+        <h3>Drop voucher files here or click to browse</h3>
+        <p>Select multiple files at once · PDF / DOCX</p>
+      </div>
+      <div id="voucherPreview" style="display:none;margin-top:14px">
+        <div class="info-box blue" id="voucherPreviewBox"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-sm btn-outline" id="btnVoucherCancel">✕ Cancel</button>
+          <button class="btn btn-sm btn-teal" id="btnVoucherUpload">☁️ Upload & Match Vouchers</button>
+        </div>
+      </div>
+      <div id="matchReport" style="display:none;margin-top:16px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ MODE 1 PANEL ════════════════════ -->
+<div class="panel" id="panel-mode1">
+  <div class="sent-mode-hdr">
+    <div style="font-size:32px">✉️</div>
+    <div>
+      <h2>Mode 1 — Document Attachments</h2>
+      <p style="color:var(--muted);font-size:13px">Sends itinerary + hotel voucher as email attachments. Only delegates with a matched voucher can be sent.</p>
+    </div>
+  </div>
+
+  <div class="info-box blue" style="margin-bottom:18px">
+    <span>ℹ️</span>
+    <div>Delegates <strong>without a matched voucher</strong> (✗) will be skipped even if selected. Ensure both itinerary and vouchers are uploaded before sending.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>Select Delegates</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="sel-count" id="mode1SelCount">0 selected</span>
+        <button class="btn btn-sm btn-outline" id="m1SelectAll">Select All Eligible</button>
+        <button class="btn btn-sm btn-outline" id="m1DeselectAll">Deselect All</button>
+      </div>
+    </div>
+    <div class="delegates-toolbar">
+      <input type="search" class="search-box" id="mode1Search" placeholder="Search…">
+      <div class="filter-strip">
+        <button class="filter-btn active" data-filter="all" data-target="mode1">All</button>
+        <button class="filter-btn" data-filter="eligible" data-target="mode1">✓ Eligible (voucher matched)</button>
+        <button class="filter-btn" data-filter="unsent" data-target="mode1">Not Yet Sent</button>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="dtbl">
+        <thead>
+          <tr>
+            <th><input type="checkbox" class="check-all" id="mode1CheckAll"></th>
+            <th>Name</th><th>Email</th><th>Voucher</th><th>Mode 1 Status</th>
+          </tr>
+        </thead>
+        <tbody id="mode1Tbody"></tbody>
+      </table>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+      <button class="btn btn-gold btn-lg" id="btnSendMode1">
+        ✉️ Send Mode 1 Emails
+      </button>
+    </div>
+  </div>
+
+  <div id="mode1Result" style="display:none"></div>
+</div>
+
+<!-- ════════════════════ MODE 2 PANEL ════════════════════ -->
+<div class="panel" id="panel-mode2">
+  <div class="sent-mode-hdr">
+    <div style="font-size:32px">📧</div>
+    <div>
+      <h2>Mode 2 — HTML Template Blast</h2>
+      <p style="color:var(--muted);font-size:13px">Sends a styled HTML email with personalised token replacement. No attachments.</p>
+    </div>
+  </div>
+
+  <!-- Template Editor -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <h2>📝 Email Template</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm btn-outline" id="btnLoadTemplate">🔄 Load from Drive</button>
+        <button class="btn btn-sm btn-teal" id="btnSaveTemplate">💾 Save to Drive</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:10px">
+        Edit the HTML template below. Use tokens that get replaced per-delegate:
+      </p>
+      <div class="token-pills">
+        <span class="token-pill" onclick="insertToken('{{prefix}}')">{{prefix}}</span>
+        <span class="token-pill" onclick="insertToken('{{first_name}}')">{{first_name}}</span>
+        <span class="token-pill" onclick="insertToken('{{last_name}}')">{{last_name}}</span>
+        <span class="token-pill" onclick="insertToken('{{full_name}}')">{{full_name}}</span>
+        <span class="token-pill" onclick="insertToken('{{email}}')">{{email}}</span>
+        <span class="token-pill" onclick="insertToken('{{organisation}}')">{{organisation}}</span>
+      </div>
+      <textarea class="template-editor" id="templateEditor" placeholder="Loading template…"></textarea>
+      <div class="info-box yellow" style="margin-top:12px;margin-bottom:0">
+        <span>💡</span>
+        <div>You can also edit <code>email_template.html</code> directly in Google Drive (<code>BB2026_Mailer</code> folder) — no redeployment needed.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delegate Selection -->
+  <div class="card">
+    <div class="card-header">
+      <h2>Select Delegates</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="sel-count" id="mode2SelCount">0 selected</span>
+        <button class="btn btn-sm btn-outline" id="m2SelectAll">Select All</button>
+        <button class="btn btn-sm btn-outline" id="m2DeselectAll">Deselect All</button>
+      </div>
+    </div>
+    <div class="delegates-toolbar">
+      <input type="search" class="search-box" id="mode2Search" placeholder="Search…">
+      <div class="filter-strip">
+        <button class="filter-btn active" data-filter="all" data-target="mode2">All</button>
+        <button class="filter-btn" data-filter="unsent" data-target="mode2">Not Yet Sent (Mode 2)</button>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="dtbl">
+        <thead>
+          <tr>
+            <th><input type="checkbox" class="check-all" id="mode2CheckAll"></th>
+            <th>Name</th><th>Email</th><th>Organisation</th><th>Mode 2 Status</th>
+          </tr>
+        </thead>
+        <tbody id="mode2Tbody"></tbody>
+      </table>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+      <button class="btn btn-gold btn-lg" id="btnSendMode2">
+        📧 Send Mode 2 Emails
+      </button>
+    </div>
+  </div>
+
+  <div id="mode2Result" style="display:none"></div>
+</div>
+
+</div><!-- /content -->
+</div><!-- /app -->
+
+<!-- ── Toast Container ────────────────────────────────────────────────────── -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ── Loading Overlay ────────────────────────────────────────────────────── -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <p id="loadingText">Processing…</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── State ────────────────────────────────────────────────────────────────────
+var state = {
+  delegates:  [],       // full list from server
+  csvRows:    [],       // parsed CSV rows pending import
+  itinFile:   null,     // selected itinerary File object
+  voucherFiles:[],      // selected voucher File objects
+  filter:     { delegates:'all', mode1:'all', mode2:'all' },
+  config:     {},
+  initialized: false,
+};
+
+// ── GAS caller ───────────────────────────────────────────────────────────────
+function callServer(action, payload) {
+  return new Promise(function(resolve, reject) {
+    google.script.run
+      .withSuccessHandler(function(r){ resolve(r); })
+      .withFailureHandler(function(e){ reject(e); })
+      .doPost({ action: action, payload: payload || {} });
+  });
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+function toast(msg, type, dur) {
+  type = type || 'info';
+  dur  = dur  || 4000;
+  var c = document.getElementById('toastContainer');
+  var icons = { success:'✓', error:'✗', warn:'⚠️', info:'ℹ️' };
+  var d = document.createElement('div');
+  d.className = 'toast '+type;
+  d.innerHTML = '<span>'+icons[type]+'</span><span style="flex:1">'+escHtml(msg)+'</span><span class="toast-close" onclick="this.parentNode.remove()">×</span>';
+  c.appendChild(d);
+  setTimeout(function(){ if(d.parentNode) d.remove(); }, dur);
+}
+
+// ── Loading overlay ───────────────────────────────────────────────────────────
+function showLoading(msg) {
+  document.getElementById('loadingText').textContent = msg || 'Processing…';
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.remove('show');
+}
+
+// ── Tab navigation ────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+    document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Status dot ────────────────────────────────────────────────────────────────
+function setStatus(ok, msg) {
+  var dot  = document.getElementById('statusDot');
+  var text = document.getElementById('statusText');
+  dot.className  = 'status-dot ' + (ok ? 'ready' : 'error');
+  text.textContent = msg;
+}
+
+// ─── INITIALISE ───────────────────────────────────────────────────────────────
+document.getElementById('btnInit').addEventListener('click', function(){
+  showLoading('Initialising system…');
+  callServer('initialise', {})
+    .then(function(r){
+      hideLoading();
+      if (r.success) {
+        var d = r.data;
+        document.getElementById('initResult').innerHTML =
+          '<div class="info-box green">'+
+          '<span>✅</span>'+
+          '<div><strong>System initialised!</strong><br>'+
+          'Sheet: <a href="'+d.sheetUrl+'" target="_blank">Open Spreadsheet</a><br>'+
+          'Folder: <a href="'+d.folderUrl+'" target="_blank">Open Drive Folder</a>'+
+          '</div></div>';
+        state.initialized = true;
+        setStatus(true, 'Ready');
+        loadConfig();
+        loadDelegates();
+        toast('System initialised successfully', 'success');
+      } else {
+        document.getElementById('initResult').innerHTML =
+          '<div class="info-box red"><span>❌</span><div>'+escHtml(r.error||'Unknown error')+'</div></div>';
+        toast(r.error||'Init failed', 'error');
+      }
+    })
+    .catch(function(err){
+      hideLoading();
+      toast('Error: '+String(err), 'error');
+    });
+});
+
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+function loadConfig() {
+  callServer('getConfig', {})
+    .then(function(r){
+      if (r.success) {
+        state.config = r.data || {};
+        document.querySelectorAll('.cfg-val').forEach(function(el){
+          var k = el.dataset.key;
+          if (state.config[k] !== undefined) el.value = state.config[k];
+        });
+        if (state.config.ITINERARY_FILE_ID) {
+          document.getElementById('itineraryStatus').textContent =
+            '✓ Uploaded (ID: '+state.config.ITINERARY_FILE_ID.substring(0,16)+'…)';
+          document.getElementById('itineraryStatus').style.color='var(--teal)';
+        }
+        setStatus(true, 'Ready');
+      }
+    })
+    .catch(function(){});
+}
+
+document.getElementById('btnSaveCfg').addEventListener('click', function(){
+  var updates = {};
+  document.querySelectorAll('.cfg-val').forEach(function(el){
+    updates[el.dataset.key] = el.value;
+  });
+  showLoading('Saving config…');
+  callServer('updateConfig', { updates: updates })
+    .then(function(r){
+      hideLoading();
+      if (r.success) { state.config = Object.assign(state.config, updates); toast('Config saved', 'success'); }
+      else toast(r.error||'Save failed', 'error');
+    })
+    .catch(function(e){ hideLoading(); toast(String(e),'error'); });
+});
+
+// ─── DELEGATES ────────────────────────────────────────────────────────────────
+function loadDelegates() {
+  callServer('getDelegates', {})
+    .then(function(r){
+      if (r.success) {
+        state.delegates = r.data || [];
+        renderDelegates();
+        renderMode1Table();
+        renderMode2Table();
+        var n = state.delegates.length;
+        document.getElementById('delegateCount').textContent = '👥 Delegates ('+(n)+')';
+      } else {
+        toast(r.error||'Failed to load delegates', 'error');
+      }
+    })
+    .catch(function(e){ toast(String(e),'error'); });
+}
+
+document.getElementById('btnRefreshDelegates').addEventListener('click', function(){ loadDelegates(); });
+
+// ── Delegate table render ─────────────────────────────────────────────────────
+function renderDelegates() {
+  var search = document.getElementById('delegateSearch').value.toLowerCase();
+  var filter = state.filter.delegates;
+  var rows   = state.delegates.filter(function(d){
+    if (search && !(
+      (d.first_name+' '+d.last_name).toLowerCase().includes(search) ||
+      String(d.email).toLowerCase().includes(search) ||
+      String(d.organisation).toLowerCase().includes(search)
+    )) return false;
+    if (filter === 'matched')   return String(d.voucher_matched).toUpperCase()==='TRUE';
+    if (filter === 'unmatched') return String(d.voucher_matched).toUpperCase()!=='TRUE';
+    if (filter === 'unsent')    return !d.send_status_mode1 && !d.send_status_mode2;
+    return true;
+  });
+  var tb = document.getElementById('delegatesTbody');
+  if (!rows.length) {
+    tb.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="icon">📋</div><p>No delegates found</p></div></td></tr>';
+    return;
+  }
+  tb.innerHTML = rows.map(function(d){
+    var full = [d.prefix,d.first_name,d.last_name].filter(Boolean).join(' ');
+    var vBadge = d.voucher_matched==='TRUE'
+      ? '<span class="badge badge-green">✓ Matched</span>'
+      : '<span class="badge badge-red">✗ None</span>';
+    var s1 = statusBadge(d.send_status_mode1);
+    var s2 = statusBadge(d.send_status_mode2);
+    var sent = d.last_sent_at ? fmtDate(d.last_sent_at) : '<span style="color:var(--muted)">—</span>';
+    return '<tr>'+
+      '<td><input type="checkbox" class="row-check" data-id="'+esc(d.delegate_id)+'"></td>'+
+      '<td class="row-id">'+esc(d.delegate_id)+'</td>'+
+      '<td style="font-weight:600">'+esc(full)+'</td>'+
+      '<td>'+esc(d.email)+'</td>'+
+      '<td>'+esc(d.organisation||'—')+'</td>'+
+      '<td>'+vBadge+'</td>'+
+      '<td>'+s1+'</td>'+
+      '<td>'+s2+'</td>'+
+      '<td style="font-size:12px;color:var(--muted)">'+sent+'</td>'+
+      '</tr>';
+  }).join('');
+}
+
+function statusBadge(s) {
+  if (!s) return '<span class="badge badge-gray">—</span>';
+  if (s==='Sent')   return '<span class="badge badge-green">✓ Sent</span>';
+  if (s==='Failed') return '<span class="badge badge-red">✗ Failed</span>';
+  return '<span class="badge badge-gray">'+esc(s)+'</span>';
+}
+
+function fmtDate(iso) {
+  try {
+    var d = new Date(iso);
+    return d.toLocaleDateString()+' '+d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  } catch(e){ return iso; }
+}
+
+// Check-all for delegates
+document.getElementById('delegatesCheckAll').addEventListener('change', function(){
+  document.querySelectorAll('#delegatesTbody .row-check').forEach(function(cb){ cb.checked = this.checked; }, this);
+});
+
+// Delegate filter buttons
+document.querySelectorAll('[data-filter][data-target!="mode1"][data-target!="mode2"]').forEach(function(btn){
+  if (btn.closest('.delegates-toolbar') && btn.parentElement.closest('#panel-delegates')) {
+    btn.addEventListener('click', function(){
+      btn.parentElement.querySelectorAll('.filter-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      state.filter.delegates = btn.dataset.filter;
+      renderDelegates();
+    });
+  }
+});
+
+document.getElementById('delegateSearch').addEventListener('input', renderDelegates);
+
+// ─── ADD DELEGATE ─────────────────────────────────────────────────────────────
+document.getElementById('addDelegateForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  var payload = {
+    prefix:       document.getElementById('addPrefix').value,
+    first_name:   document.getElementById('addFirst').value.trim(),
+    last_name:    document.getElementById('addLast').value.trim(),
+    email:        document.getElementById('addEmail').value.trim(),
+    organisation: document.getElementById('addOrg').value.trim(),
+  };
+  showLoading('Adding delegate…');
+  callServer('addDelegate', payload)
+    .then(function(r){
+      hideLoading();
+      if (r.success) {
+        toast('Delegate added: '+payload.first_name+' '+payload.last_name, 'success');
+        e.target.reset();
+        loadDelegates();
+      } else {
+        toast(r.error||'Add failed','error');
+      }
+    })
+    .catch(function(err){ hideLoading(); toast(String(err),'error'); });
+});
+
+// ─── CSV IMPORT ───────────────────────────────────────────────────────────────
+setupDropZone('csvDropZone', 'csvFileInput', function(files){
+  var file = files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev){ parseCSV(ev.target.result); };
+  reader.readAsText(file);
+});
+
+function parseCSV(text) {
+  var lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) { toast('CSV is empty or has no data rows','warn'); return; }
+  var headers = csvSplit(lines[0]).map(function(h){ return h.trim().toLowerCase().replace(/\s+/g,'_'); });
+  var required = ['email'];
+  for (var i=0; i<required.length; i++){
+    if (headers.indexOf(required[i])===-1){ toast('CSV missing required column: '+required[i],'error'); return; }
+  }
+  var rows = [];
+  for (var i=1; i<lines.length; i++){
+    if (!lines[i].trim()) continue;
+    var cells = csvSplit(lines[i]);
+    var obj = {};
+    headers.forEach(function(h,c){ obj[h] = (cells[c]||'').trim(); });
+    if (obj.email) rows.push(obj);
+  }
+  state.csvRows = rows;
+  renderCSVPreview(rows, headers);
+}
+
+function csvSplit(line) {
+  var result=[], cur='', inQ=false;
+  for (var i=0;i<line.length;i++){
+    var c=line[i];
+    if (c==='"'){ if (inQ && line[i+1]==='"'){ cur+='"'; i++; } else inQ=!inQ; }
+    else if (c===',' && !inQ){ result.push(cur); cur=''; }
+    else cur+=c;
+  }
+  result.push(cur);
+  return result;
+}
+
+function renderCSVPreview(rows, headers) {
+  var showCols = ['prefix','first_name','last_name','email','organisation'];
+  var cols = showCols.filter(function(c){ return headers.indexOf(c)!==-1; });
+  var html = '<table><thead><tr>'+cols.map(function(c){ return '<th>'+esc(c)+'</th>'; }).join('')+'</tr></thead><tbody>';
+  rows.slice(0,50).forEach(function(r){
+    html += '<tr>'+cols.map(function(c){ return '<td>'+esc(r[c]||'')+'</td>'; }).join('')+'</tr>';
+  });
+  if (rows.length>50) html += '<tr><td colspan="'+cols.length+'" style="text-align:center;color:var(--muted);padding:8px">…and '+(rows.length-50)+' more rows</td></tr>';
+  html += '</tbody></table>';
+  document.getElementById('csvPreviewTable').innerHTML = html;
+  document.getElementById('csvPreviewCount').textContent = rows.length+' rows ready to import';
+  document.getElementById('csvPreview').style.display='block';
+}
+
+document.getElementById('btnCsvCancel').addEventListener('click', function(){
+  state.csvRows = [];
+  document.getElementById('csvPreview').style.display='none';
+  document.getElementById('csvFileInput').value='';
+});
+
+document.getElementById('btnCsvImport').addEventListener('click', function(){
+  if (!state.csvRows.length){ toast('No rows to import','warn'); return; }
+  showLoading('Importing '+state.csvRows.length+' delegates…');
+  callServer('importCSV', { rows:state.csvRows })
+    .then(function(r){
+      hideLoading();
+      if (r.success) {
+        var d = r.data;
+        toast('Imported '+d.imported+' delegates'+(d.skipped?' ('+d.skipped+' skipped/duplicates)':''), 'success', 6000);
+        document.getElementById('csvPreview').style.display='none';
+        state.csvRows = [];
+        document.getElementById('csvFileInput').value='';
+        loadDelegates();
+      } else {
+        toast(r.error||'Import failed','error');
+      }
+    })
+    .catch(function(e){ hideLoading(); toast(String(e),'error'); });
+});
+
+// ─── ITINERARY UPLOAD ─────────────────────────────────────────────────────────
+setupDropZone('itinDropZone','itinFileInput', function(files){
+  state.itinFile = files[0];
+  if (!state.itinFile) return;
+  document.getElementById('itinPreviewBox').innerHTML =
+    '<span>📄</span><div>Ready to upload: <strong>'+escHtml(state.itinFile.name)+'</strong> ('+fmtSize(state.itinFile.size)+')</div>';
+  document.getElementById('itinPreview').style.display='block';
+});
+
+document.getElementById('btnItinCancel').addEventListener('click', function(){
+  state.itinFile = null;
+  document.getElementById('itinPreview').style.display='none';
+  document.getElementById('itinFileInput').value='';
+});
+
+document.getElementById('btnItinUpload').addEventListener('click', function(){
+  if (!state.itinFile){ toast('No file selected','warn'); return; }
+  showLoading('Uploading itinerary…');
+  readAsBase64(state.itinFile, function(b64){
+    callServer('uploadItinerary', {
+      base64Data: b64, mimeType: state.itinFile.type||'application/pdf', fileName: state.itinFile.name,
+    })
+    .then(function(r){
+      hideLoading();
+      if (r.success) {
+        toast('Itinerary uploaded: '+r.data.fileName, 'success');
+        document.getElementById('itineraryStatus').textContent = '✓ '+r.data.fileName;
+        document.getElementById('itineraryStatus').style.color='var(--teal)';
+        document.getElementById('itinPreview').style.display='none';
+        state.itinFile = null;
+        state.config.ITINERARY_FILE_ID = r.data.fileId;
+        document.querySelector('[data-key="ITINERARY_FILE_ID"]').value = r.data.fileId;
+      } else {
+        toast(r.error||'Upload failed','error');
+      }
+    })
+    .catch(function(e){ hideLoading(); toast(String(e),'error'); });
+  });
+});
+
+// ─── VOUCHER UPLOAD ───────────────────────────────────────────────────────────
+setupDropZone('voucherDropZone','voucherFileInput', function(files){
+  state.voucherFiles = Array.from(files);
+  document.getElementById('voucherPreviewBox').innerHTML =
+    '<span>🏨</span><div>Ready to upload <strong>'+files.length+'</strong> voucher file'+
+    (files.length>1?'s':'')+'</div>';
+  document.getElementById('voucherPreview').style.display='block';
+  document.getElementById('matchReport').style.display='none';
+});
+
+document.getElementById('btnVoucherCancel').addEventListener('click', function(){
+  state.voucherFiles = [];
+  document.getElementById('voucherPreview').style.display='none';
+  document.getElementById('voucherFileInput').value='';
+});
+
+document.getElementById('btnVoucherUpload').addEventListener('click', function(){
+  if (!state.voucherFiles.length){ toast('No files selected','warn'); return; }
+  showLoading('Uploading '+state.voucherFiles.length+' vouchers…');
+  readFilesAsBase64(state.voucherFiles, function(fileObjs){
+    callServer('uploadVouchers', { files: fileObjs })
+      .then(function(r){
+        hideLoading();
+        if (r.success) {
+          var d = r.data;
+          var html = '<div class="match-report">';
+          if (d.matched.length) {
+            html += '<div class="match-section ok">'+
+              '<h4>✓ Matched ('+d.matched.length+')</h4>'+
+              '<ul class="match-list">'+
+              d.matched.map(function(m){ return '<li>'+escHtml(m.fileName)+' → <strong>'+escHtml(m.delegate)+'</strong></li>'; }).join('')+
+              '</ul></div>';
+          }
+          if (d.unmatched.length) {
+            html += '<div class="match-section err">'+
+              '<h4>✗ Not Matched ('+d.unmatched.length+') — fix filename & re-upload</h4>'+
+              '<ul class="match-list">'+
+              d.unmatched.map(function(m){ return '<li>'+escHtml(m.fileName)+(m.error?' — Error: '+escHtml(m.error):'')+'</li>'; }).join('')+
+              '</ul></div>';
+          }
+          html += '</div>';
+          document.getElementById('matchReport').innerHTML = html;
+          document.getElementById('matchReport').style.display = 'block';
+          document.getElementById('voucherPreview').style.display = 'none';
+          state.voucherFiles = [];
+          toast('Uploaded '+d.totalUploaded+' files · '+d.matchedCount+' matched · '+d.unmatchedCount+' unmatched',
+            d.unmatchedCount ? 'warn' : 'success', 7000);
+          loadDelegates();
+        } else {
+          toast(r.error||'Upload failed','error');
+        }
+      })
+      .catch(function(e){ hideLoading(); toast(String(e),'error'); });
+  });
+});
+
+// ─── MODE 1 TABLE ─────────────────────────────────────────────────────────────
+function renderMode1Table() {
+  var search = document.getElementById('mode1Search').value.toLowerCase();
+  var filter = state.filter.mode1;
+  var rows = state.delegates.filter(function(d){
+    if (search && !(
+      [d.prefix,d.first_name,d.last_name].filter(Boolean).join(' ').toLowerCase().includes(search)||
+      String(d.email).toLowerCase().includes(search)
+    )) return false;
+    if (filter==='eligible') return String(d.voucher_matched).toUpperCase()==='TRUE';
+    if (filter==='unsent')   return !d.send_status_mode1 || d.send_status_mode1==='';
+    return true;
+  });
+
+  var tb = document.getElementById('mode1Tbody');
+  if (!rows.length) {
+    tb.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="icon">📋</div><p>No delegates</p></div></td></tr>';
+    updateMode1SelCount(); return;
+  }
+
+  tb.innerHTML = rows.map(function(d){
+    var full = [d.prefix,d.first_name,d.last_name].filter(Boolean).join(' ');
+    var vBadge = d.voucher_matched==='TRUE'
+      ? '<span class="badge badge-green">✓ Eligible</span>'
+      : '<span class="badge badge-gray" title="Cannot send — no voucher">✗ No Voucher</span>';
+    var noV = d.voucher_matched!=='TRUE';
+    return '<tr style="'+(noV?'opacity:.5':'')+'">'+
+      '<td><input type="checkbox" class="row-check m1-check" data-id="'+esc(d.delegate_id)+'"'+(noV?' disabled':'')+' onclick="updateMode1SelCount()"></td>'+
+      '<td style="font-weight:600">'+esc(full)+'</td>'+
+      '<td>'+esc(d.email)+'</td>'+
+      '<td>'+vBadge+'</td>'+
+      '<td>'+statusBadge(d.send_status_mode1)+'</td>'+
+      '</tr>';
+  }).join('');
+  updateMode1SelCount();
+}
+
+function updateMode1SelCount() {
+  var n = document.querySelectorAll('.m1-check:checked').length;
+  document.getElementById('mode1SelCount').textContent = n+' selected';
+}
+
+document.getElementById('mode1CheckAll').addEventListener('change', function(){
+  document.querySelectorAll('.m1-check:not(:disabled)').forEach(function(cb){ cb.checked = this.checked; }, this);
+  updateMode1SelCount();
+});
+document.getElementById('m1SelectAll').addEventListener('click', function(){
+  document.querySelectorAll('.m1-check:not(:disabled)').forEach(function(cb){ cb.checked=true; });
+  updateMode1SelCount();
+});
+document.getElementById('m1DeselectAll').addEventListener('click', function(){
+  document.querySelectorAll('.m1-check').forEach(function(cb){ cb.checked=false; });
+  updateMode1SelCount();
+});
+document.getElementById('mode1Search').addEventListener('input', renderMode1Table);
+
+// Mode 1 filter buttons
+document.querySelectorAll('[data-target="mode1"]').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    btn.parentElement.querySelectorAll('.filter-btn').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    state.filter.mode1 = btn.dataset.filter;
+    renderMode1Table();
+  });
+});
+
+document.getElementById('btnSendMode1').addEventListener('click', function(){
+  var ids = [];
+  document.querySelectorAll('.m1-check:checked').forEach(function(cb){ ids.push(cb.dataset.id); });
+  if (!ids.length){ toast('No delegates selected','warn'); return; }
+  if (!confirm('Send Mode 1 emails to '+ids.length+' delegate(s)?\n\nOnly those with matched vouchers will receive emails. Others will be skipped.')) return;
+  showLoading('Sending '+ids.length+' Mode 1 emails…');
+  callServer('sendMode1', { delegateIds:ids })
+    .then(function(r){
+      hideLoading();
+      if (r.success) {
+        showSendResult('mode1Result', r.data);
+        toast('Mode 1 complete: '+r.data.sent+' sent, '+r.data.failed+' failed, '+r.data.skipped+' skipped', r.data.failed?'warn':'success', 7000);
+        loadDelegates();
+      } else {
+        toast(r.error||'Send failed','error');
+      }
+    })
+    .catch(function(e){ hideLoading(); toast(String(e),'error'); });
+});
+
+// ─── MODE 2 TABLE ─────────────────────────────────────────────────────────────
+function renderMode2Table() {
+  var search = document.getElementById('mode2Search').value.toLowerCase();
+  var filter = state.filter.mode2;
+  var rows = state.delegates.filter(function(d){
+    if (search && !(
+      [d.prefix,d.first_name,d.last_name].filter(Boolean).join(' ').toLowerCase().includes(search)||
+      String(d.email).toLowerCase().includes(search)
+    )) return false;
+    if (filter==='unsent') return !d.send_status_mode2 || d.send_status_mode2==='';
+    return true;
+  });
+
+  var tb = document.getElementById('mode2Tbody');
+  if (!rows.length) {
+    tb.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="icon">📋</div><p>No delegates</p></div></td></tr>';
+    updateMode2SelCount(); return;
+  }
+
+  tb.innerHTML = rows.map(function(d){
+    var full = [d.prefix,d.first_name,d.last_name].filter(Boolean).join(' ');
+    return '<tr>'+
+      '<td><input type="checkbox" class="row-check m2-check" data-id="'+esc(d.delegate_id)+'" onclick="updateMode2SelCount()"></td>'+
+      '<td style="font-weight:600">'+esc(full)+'</td>'+
+      '<td>'+esc(d.email)+'</td>'+
+      '<td>'+esc(d.organisation||'—')+'</td>'+
+      '<td>'+statusBadge(d.send_status_mode2)+'</td>'+
+      '</tr>';
+  }).join('');
+  updateMode2SelCount();
+}
+
+function updateMode2SelCount() {
+  var n = document.querySelectorAll('.m2-check:checked').length;
+  document.getElementById('mode2SelCount').textContent = n+' selected';
+}
+
+document.getElementById('mode2CheckAll').addEventListener('change', function(){
+  document.querySelectorAll('.m2-check').forEach(function(cb){ cb.checked=this.checked; }, this);
+  updateMode2SelCount();
+});
+document.getElementById('m2SelectAll').addEventListener('click', function(){
+  document.querySelectorAll('.m2-check').forEach(function(cb){ cb.checked=true; });
+  updateMode2SelCount();
+});
+document.getElementById('m2DeselectAll').addEventListener('click', function(){
+  document.querySelectorAll('.m2-check').forEach(function(cb){ cb.checked=false; });
+  updateMode2SelCount();
+});
+document.getElementById('mode2Search').addEventListener('input', renderMode2Table);
+
+document.querySelectorAll('[data-target="mode2"]').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    btn.parentElement.querySelectorAll('.filter-btn').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    state.filter.mode2 = btn.dataset.filter;
+    renderMode2Table();
+  });
+});
+
+document.getElementById('btnSendMode2').addEventListener('click', function(){
+  var ids = [];
+  document.querySelectorAll('.m2-check:checked').forEach(function(cb){ ids.push(cb.dataset.id); });
+  if (!ids.length){ toast('No delegates selected','warn'); return; }
+  if (!confirm('Send Mode 2 HTML emails to '+ids.length+' delegate(s)?\n\nSubject: '+(state.config.MODE2_SUBJECT||'(as configured)'))) return;
+  showLoading('Sending '+ids.length+' Mode 2 emails…');
+  callServer('sendMode2', { delegateIds:ids })
+    .then(function(r){
+      hideLoading();
+      if (r.success) {
+        showSendResult('mode2Result', r.data);
+        toast('Mode 2 complete: '+r.data.sent+' sent, '+r.data.failed+' failed', r.data.failed?'warn':'success', 7000);
+        loadDelegates();
+      } else {
+        toast(r.error||'Send failed','error');
+      }
+    })
+    .catch(function(e){ hideLoading(); toast(String(e),'error'); });
+});
+
+// ─── TEMPLATE EDITOR ──────────────────────────────────────────────────────────
+document.getElementById('btnLoadTemplate').addEventListener('click', function(){
+  showLoading('Loading template…');
+  callServer('getTemplate', {})
+    .then(function(r){
+      hideLoading();
+      if (r.success) {
+        document.getElementById('templateEditor').value = r.data;
+        toast('Template loaded from Drive','success');
+      } else {
+        toast(r.error||'Template not found','warn');
+      }
+    })
+    .catch(function(e){ hideLoading(); toast(String(e),'error'); });
+});
+
+document.getElementById('btnSaveTemplate').addEventListener('click', function(){
+  var html = document.getElementById('templateEditor').value.trim();
+  if (!html){ toast('Template is empty','warn'); return; }
+  showLoading('Saving template to Drive…');
+  callServer('saveTemplate', { html:html })
+    .then(function(r){
+      hideLoading();
+      if (r.success) toast('Template saved to Drive','success');
+      else toast(r.error||'Save failed','error');
+    })
+    .catch(function(e){ hideLoading(); toast(String(e),'error'); });
+});
+
+function insertToken(token) {
+  var ta = document.getElementById('templateEditor');
+  var s = ta.selectionStart, e = ta.selectionEnd;
+  ta.value = ta.value.substring(0,s) + token + ta.value.substring(e);
+  ta.selectionStart = ta.selectionEnd = s + token.length;
+  ta.focus();
+}
+
+// ─── SEND RESULT DISPLAY ──────────────────────────────────────────────────────
+function showSendResult(divId, data) {
+  var div = document.getElementById(divId);
+  var html = '<div class="card" style="margin-top:18px"><div class="card-header"><h2>📊 Send Results</h2></div><div class="card-body">';
+  html += '<div class="send-summary">'+
+    '<div class="sum-card green"><div class="num">'+data.sent+'</div><div class="lbl">Sent</div></div>'+
+    '<div class="sum-card red"><div class="num">'+data.failed+'</div><div class="lbl">Failed</div></div>'+
+    '<div class="sum-card gray"><div class="num">'+(data.skipped||0)+'</div><div class="lbl">Skipped</div></div>'+
+    '</div>';
+  if (data.errors && data.errors.length) {
+    html += '<h4 style="font-size:13px;font-weight:700;color:var(--danger);margin-bottom:8px">Failed Sends:</h4>'+
+      '<ul class="error-list">'+data.errors.map(function(e){
+        return '<li><strong>'+escHtml(e.name)+'</strong> ('+escHtml(e.email)+'): '+escHtml(e.error)+'</li>';
+      }).join('')+'</ul>';
+  }
+  html += '</div></div>';
+  div.innerHTML = html;
+  div.style.display = 'block';
+  div.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+// ─── FILE HELPERS ─────────────────────────────────────────────────────────────
+function setupDropZone(zoneId, inputId, callback) {
+  var zone  = document.getElementById(zoneId);
+  var input = document.getElementById(inputId);
+  zone.addEventListener('click', function(){ input.click(); });
+  zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', function(){ zone.classList.remove('drag-over'); });
+  zone.addEventListener('drop', function(e){
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    callback(e.dataTransfer.files);
+  });
+  input.addEventListener('change', function(){ if (input.files.length) callback(input.files); });
+}
+
+function readAsBase64(file, cb) {
+  var reader = new FileReader();
+  reader.onload = function(e){ cb(e.target.result.split(',')[1]); };
+  reader.readAsDataURL(file);
+}
+
+function readFilesAsBase64(files, cb) {
+  var results=[], done=0, total=files.length;
+  if (!total){ cb([]); return; }
+  Array.from(files).forEach(function(f){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      results.push({ base64Data:e.target.result.split(',')[1], mimeType:f.type||'application/pdf', fileName:f.name });
+      done++;
+      if (done===total) cb(results);
+    };
+    reader.readAsDataURL(f);
+  });
+}
+
+function fmtSize(bytes) {
+  if (bytes<1024) return bytes+'B';
+  if (bytes<1048576) return (bytes/1024).toFixed(1)+'KB';
+  return (bytes/1048576).toFixed(1)+'MB';
+}
+
+// ─── ESCAPE HELPERS ───────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function esc(s){ return escHtml(s); }
+
+// ─── BOOT ─────────────────────────────────────────────────────────────────────
+(function boot() {
+  // Ping server to verify connection
+  callServer('ping', {})
+    .then(function(r){
+      if (r && r.success) {
+        setStatus(true, 'Connected');
+        // Try loading config + delegates on boot
+        loadConfig();
+        loadDelegates();
+        // Try loading template
+        callServer('getTemplate', {}).then(function(r2){
+          if (r2.success) document.getElementById('templateEditor').value = r2.data;
+        }).catch(function(){});
+      } else {
+        setStatus(false, 'Server error');
+      }
+    })
+    .catch(function(){
+      setStatus(false, 'Not connected');
+      toast('Could not reach the GAS server. Make sure the web app is deployed correctly.','error',8000);
+    });
+})();
+</script>
+</body>
+</html>

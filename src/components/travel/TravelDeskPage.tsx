@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import ExcelLeadsSheet from "@/components/dashboard/ExcelLeadsSheet";
 import useSWR from "swr";
 import { toast } from "sonner";
 import { Download, Upload, Pencil, Trash2, RefreshCw, Copy, Lock, CheckCircle } from "lucide-react";
@@ -58,6 +59,7 @@ export default function TravelDeskPage({ isAdmin = false, isSupervisor = false }
   const [files, setFiles] = useState<FileMap>({});
   const [saving, setSaving] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
+  const [subTab, setSubTab] = useState<"travel" | "excel">("excel");
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm(f => ({ ...f, [k]: v }));
   const reset = () => { setForm(EMPTY_FORM); setFiles({}); setEditId(null); };
@@ -292,8 +294,38 @@ export default function TravelDeskPage({ isAdmin = false, isSupervisor = false }
         </div>
       </div>
 
-      {/* Form */}
-      <div className="glass-card p-6 mb-8">
+      {/* Tab Switcher (Only show Travel Desk Records tab to Admin & Supervisor) */}
+      {(isAdmin || isSupervisor) && (
+        <div className="tab-strip p-1 bg-[var(--color-border)]/50 rounded-xl flex gap-1 mb-6 max-w-md">
+          <button 
+            className={`tab-item rounded-lg px-4 py-1.5 transition-all flex-1 text-center font-bold text-xs ${
+              subTab === "excel" 
+                ? "active bg-[var(--color-surface)] shadow-sm text-[var(--color-text-primary)] font-black" 
+                : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+            }`} 
+            onClick={() => setSubTab("excel")}
+          >
+            Excel Lead Sheet
+          </button>
+          <button 
+            className={`tab-item rounded-lg px-4 py-1.5 transition-all flex-1 text-center font-bold text-xs ${
+              subTab === "travel" 
+                ? "active bg-[var(--color-surface)] shadow-sm text-[var(--color-text-primary)] font-black" 
+                : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+            }`} 
+            onClick={() => setSubTab("travel")}
+          >
+            Travel Desk Records
+          </button>
+        </div>
+      )}
+
+      {subTab === "excel" || (!isAdmin && !isSupervisor) ? (
+        <ExcelLeadsSheet />
+      ) : (
+        <>
+          {/* Form */}
+          <div className="glass-card p-6 mb-8">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-[1.1rem] font-bold tracking-tight">
             {editId ? (
@@ -593,6 +625,8 @@ export default function TravelDeskPage({ isAdmin = false, isSupervisor = false }
           </div>
         ))}
       </div>
+      </>
+      )}
     </div>
   );
 }

@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import useSWR from "swr";
-import { Send, User as UserIcon, Shield, Loader2, MessageSquare, Paperclip, MoreVertical, Edit2, Trash2, X, File as FileIcon } from "lucide-react";
+import {
+  Send, User as UserIcon, Shield, Loader2, MessageSquare, Paperclip,
+  MoreVertical, Edit2, Trash2, X, File as FileIcon, Plus, Search, Users
+} from "lucide-react";
+
 import { toast } from "sonner";
 import { uploadFileToDrive } from "@/lib/gas-client";
 
@@ -29,6 +33,14 @@ interface User {
   role: string;
 }
 
+interface ChatGroup {
+  id: number;
+  name: string;
+  description: string | null;
+  memberIds: number[] | null;
+  createdByName?: string | null;
+}
+
 interface ChatPageProps {
   currentUserEmail: string | null;
   currentUserId: string | null;
@@ -40,24 +52,62 @@ export default function ChatPage({
   currentUserEmail,
   currentUserId,
   currentUserName,
-  currentUserRole
+  currentUserRole,
 }: ChatPageProps) {
+  // activeTab: "team" | "dm" | "group"
+  const [activeTab, setActiveTab] = useState<"team" | "dm" | "group">("team");
   const [recipientId, setRecipientId] = useState<number | null>(null);
-  
-  const { data: usersData } = useSWR<{ users: User[] }>("/api/chat/users", fetcher);
+  const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
+  const [userSearch, setUserSearch] = useState("");
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+
+  // Create Group form states
+  const [groupName, setGroupName] = useState("");
+  const [groupDesc, setGroupDesc] = useState("");
+  const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+
+  // Fetch Users
+  const { data: usersData } = useSWR<{ users: User[]; currentUserId?: number }>("/api/chat/users", fetcher);
   const usersList = useMemo(() => usersData?.users || [], [usersData]);
 
+  const myUserId = useMemo(() => {
+    if (usersData?.currentUserId) return usersData.currentUserId;
+    const found = usersList.find((u) => u.email === currentUserEmail);
+    if (found) return found.id;
+    const num = parseInt(String(currentUserId), 10);
+    return isNaN(num) ? 1 : num;
+  }, [usersData, usersList, currentUserEmail, currentUserId]);
+
+  const isAdmin = currentUserRole === "master_admin" || currentUserRole === "admin" || currentUserId === "admin";
+
+
+  // Fetch Groups
+  const { data: groupsData, mutate: mutateGroups } = useSWR<{ groups: ChatGroup[] }>(
+    "/api/v1/chat/groups",
+    fetcher
+  );
+  const groupsList = useMemo(() => groupsData?.groups || [], [groupsData]);
+
+  // Determine query URL based on active view
+  let apiUrl = "/api/chat";
+  if (activeTab === "dm" && recipientId) {
+    apiUrl = `/api/chat?recipientId=${recipientId}`;
+  } else if (activeTab === "group" && activeGroupId) {
+    apiUrl = `/api/v1/chat?threadType=group&threadId=${activeGroupId}`;
+  }
+
   const { data, mutate, isLoading } = useSWR<{ messages: ChatMessage[] }>(
-    `/api/chat${recipientId ? `?recipientId=${recipientId}` : ''}`,
+    apiUrl,
     fetcher,
     { refreshInterval: 3000 }
   );
-  
+
   const messages = useMemo(() => data?.messages ?? [], [data]);
   const [newMessage, setNewMessage] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
-  
+
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingText, setEditingText] = useState("");
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
@@ -73,8 +123,14 @@ export default function ChatPage({
     scrollToBottom();
   }, [messages]);
 
-  const isAdmin = currentUserRole === "admin" || currentUserId === "admin";
-  const myUserId = currentUserId === "admin" ? 1 : Number(currentUserId);
+  const filteredUsers = useMemo(() => {
+    if (!userSearch.trim()) return usersList;
+    const q = userSearch.toLowerCase();
+    return usersList.filter(
+      (u) => (u.name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q) || (u.role || "").toLowerCase().includes(q)
+    );
+  }, [usersList, userSearch]);
+
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,7 +145,7 @@ export default function ChatPage({
       try {
         const res = await uploadFileToDrive(file, {
           subFolderName: "Chat Attachments",
-          docType: "chat_attachment"
+          docType: "chat_attachment",
         });
         if (res.ok) {
           uploadedUrl = res.url || res.webViewLink || null;
@@ -111,7 +167,7 @@ export default function ChatPage({
       message: newMessage.trim(),
       createdAt: new Date().toISOString(),
       userId: myUserId,
-      recipientId: recipientId,
+      recipientId: activeTab === "dm" ? recipientId : null,
       fileUrl: uploadedUrl,
       fileName: uploadedName,
       isEdited: false,
@@ -125,19 +181,29 @@ export default function ChatPage({
     setFile(null);
 
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          message: optimisticMessage.message,
-          recipientId: optimisticMessage.recipientId,
-          fileUrl: optimisticMessage.fileUrl,
-          fileName: optimisticMessage.fileName
-        }),
-      });
-      if (!res.ok) {
-        const d = await res.json();
-        toast.error(d.error || "Failed to send message");
+      if (activeTab === "group" && activeGroupId) {
+        await fetch("/api/v1/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            threadType: "group",
+            threadId: String(activeGroupId),
+            message: optimisticMessage.message,
+            fileUrl: optimisticMessage.fileUrl,
+            fileName: optimisticMessage.fileName,
+          }),
+        });
+      } else {
+        await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: optimisticMessage.message,
+            recipientId: optimisticMessage.recipientId,
+            fileUrl: optimisticMessage.fileUrl,
+            fileName: optimisticMessage.fileName,
+          }),
+        });
       }
       mutate();
     } catch {
@@ -148,207 +214,251 @@ export default function ChatPage({
     }
   };
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
+  const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingId || !editingText.trim()) return;
+    if (!groupName.trim()) return;
 
-    const id = editingId;
-    setEditingId(null);
-    setEditingText("");
-    
-    // Optimistic UI
-    mutate({
-      messages: messages.map(m => m.id === id ? { ...m, message: editingText.trim(), isEdited: true } : m)
-    }, false);
-
+    setCreatingGroup(true);
     try {
-      await fetch(`/api/chat/${id}`, {
-        method: "PUT",
+      const res = await fetch("/api/v1/chat/groups", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: editingText.trim() }),
+        body: JSON.stringify({
+          name: groupName.trim(),
+          description: groupDesc.trim() || null,
+          memberIds: selectedMemberIds,
+        }),
       });
-      mutate();
-    } catch {
-      toast.error("Failed to edit message");
-      mutate();
+
+      if (res.ok) {
+        const data = await res.json();
+        toast.success(`Group "${groupName}" created!`);
+        setShowCreateGroupModal(false);
+        setGroupName("");
+        setGroupDesc("");
+        setSelectedMemberIds([]);
+        mutateGroups();
+
+        if (data.group?.id) {
+          setActiveTab("group");
+          setActiveGroupId(data.group.id);
+        }
+      } else {
+        toast.error("Failed to create group");
+      }
+    } finally {
+      setCreatingGroup(false);
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm("Delete this message?")) return;
-    setOpenMenuId(null);
-    
-    // Optimistic
-    mutate({ messages: messages.filter(m => m.id !== id) }, false);
-    
-    try {
-      await fetch(`/api/chat/${id}`, { method: "DELETE" });
-      mutate();
-    } catch (_e: unknown) {
-      console.error(_e);
-      toast.error("Failed to delete message");
-      mutate();
-    }
+  const handleToggleMember = (userId: number) => {
+    setSelectedMemberIds((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
   };
 
-  const currentChatName = recipientId 
-    ? usersList.find(u => u.id === recipientId)?.name || usersList.find(u => u.id === recipientId)?.email 
-    : "Team Chat";
+  const activeHeaderTitle = useMemo(() => {
+    if (activeTab === "team") return "Global Team Chat";
+    if (activeTab === "dm" && recipientId) {
+      const u = usersList.find((x) => x.id === recipientId);
+      return u ? `${u.name || u.email} (${u.role})` : "Direct Message";
+    }
+    if (activeTab === "group" && activeGroupId) {
+      const g = groupsList.find((x) => x.id === activeGroupId);
+      return g ? `Group: ${g.name}` : "Group Channel";
+    }
+    return "Enterprise Messaging";
+  }, [activeTab, recipientId, activeGroupId, usersList, groupsList]);
 
   return (
-    <div className="flex h-[calc(100vh-80px)] max-w-[1200px] mx-auto animate-fade-in p-4 md:p-6 gap-6">
-      
-      {/* Sidebar for DMs */}
-      <div className="w-[300px] bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-sm flex flex-col overflow-hidden hidden md:flex shrink-0">
-        <div className="p-4 border-b border-[var(--color-border)] bg-[var(--color-bg-primary)]">
-          <h2 className="font-bold text-[var(--color-text-primary)]">Chats</h2>
-        </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
-          <div 
-            onClick={() => setRecipientId(null)} 
-            className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${!recipientId ? 'bg-[var(--color-accent)] text-white shadow-sm' : 'hover:bg-black/5 dark:hover:bg-white/5 text-[var(--color-text-primary)]'}`}
+    <div className="flex h-[calc(100vh-80px)] max-w-[1400px] mx-auto animate-fade-in p-4 md:p-6 gap-6">
+      {/* ── Sidebar ── */}
+      <div className="w-[320px] bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-sm flex flex-col overflow-hidden hidden md:flex shrink-0">
+        <div className="p-4 border-b border-[var(--color-border)] bg-[var(--color-bg-primary)] flex items-center justify-between">
+          <h2 className="font-bold text-base text-[var(--color-text-primary)]">Enterprise Chat</h2>
+          <button
+            onClick={() => setShowCreateGroupModal(true)}
+            className="btn-primary py-1 px-2.5 text-[11px] flex items-center gap-1 shadow-xs"
+            title="Create New Group Channel"
           >
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${!recipientId ? 'bg-white/20' : 'bg-[#e2e8f0] dark:bg-[#334155] text-[var(--color-accent)]'}`}>
-              <MessageSquare size={20} />
+            <Plus size={13} /> New Group
+          </button>
+        </div>
+
+        {/* User Search Bar */}
+        <div className="p-3 border-b border-[var(--color-border)]/60 bg-[var(--color-surface)]">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+            <input
+              type="text"
+              placeholder="Search team members or roles…"
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+              className="input w-full pl-9 py-1.5 text-xs bg-[var(--color-bg-primary)] border-[var(--color-border)]"
+            />
+          </div>
+        </div>
+
+        {/* Channels & DMs List */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-3">
+          {/* Main Team Channel */}
+          <div>
+            <div className="px-3 pb-1 text-[0.68rem] font-bold text-[var(--color-text-tertiary)] uppercase tracking-wider">
+              Main Channel
             </div>
-            <div className="font-semibold text-sm">Team Chat</div>
-          </div>
-          
-          <div className="px-3 pt-4 pb-2 text-[0.7rem] font-bold text-[var(--color-text-tertiary)] uppercase tracking-wider">
-            Direct Messages
-          </div>
-          
-          {usersList.filter(u => u.id !== myUserId).map(u => (
-            <div 
-              key={u.id}
-              onClick={() => setRecipientId(u.id)} 
-              className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${recipientId === u.id ? 'bg-[var(--color-accent)] text-white shadow-sm' : 'hover:bg-black/5 dark:hover:bg-white/5 text-[var(--color-text-primary)]'}`}
+            <div
+              onClick={() => {
+                setActiveTab("team");
+                setRecipientId(null);
+                setActiveGroupId(null);
+              }}
+              className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${
+                activeTab === "team" ? "bg-[var(--color-accent)] text-white shadow-sm font-semibold" : "hover:bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
+              }`}
             >
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${recipientId === u.id ? 'bg-white/20' : 'bg-[#e2e8f0] dark:bg-[#334155] text-gray-500'}`}>
-                <UserIcon size={20} />
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${activeTab === "team" ? "bg-white/20" : "bg-[#0071e3]/10 text-[#0071e3]"}`}>
+                <MessageSquare size={18} />
               </div>
-              <div className="font-medium text-sm truncate">{u.name || u.email}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs truncate font-bold">Global Team Chat</div>
+                <div className="text-[10px] opacity-75 truncate">All enterprise team members</div>
+              </div>
             </div>
-          ))}
+          </div>
+
+          {/* Group Channels Section */}
+          {groupsList.length > 0 && (
+            <div>
+              <div className="px-3 pb-1 text-[0.68rem] font-bold text-[var(--color-text-tertiary)] uppercase tracking-wider flex items-center justify-between">
+                <span>Group Channels ({groupsList.length})</span>
+              </div>
+              <div className="space-y-1">
+                {groupsList.map((g) => (
+                  <div
+                    key={g.id}
+                    onClick={() => {
+                      setActiveTab("group");
+                      setActiveGroupId(g.id);
+                      setRecipientId(null);
+                    }}
+                    className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${
+                      activeTab === "group" && activeGroupId === g.id
+                        ? "bg-[#5856d6] text-white shadow-sm font-semibold"
+                        : "hover:bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${activeTab === "group" && activeGroupId === g.id ? "bg-white/20" : "bg-[#5856d6]/10 text-[#5856d6]"}`}>
+                      <Users size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs truncate font-bold">{g.name}</div>
+                      <div className="text-[10px] opacity-75 truncate">{g.description || `${g.memberIds?.length ?? 0} members`}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Direct Messages Section */}
+          <div>
+            <div className="px-3 pb-1 text-[0.68rem] font-bold text-[var(--color-text-tertiary)] uppercase tracking-wider">
+              Direct Messages ({filteredUsers.length})
+            </div>
+            <div className="space-y-1">
+              {filteredUsers
+                .filter((u) => u.id !== myUserId)
+                .map((u) => (
+                  <div
+                    key={u.id}
+                    onClick={() => {
+                      setActiveTab("dm");
+                      setRecipientId(u.id);
+                      setActiveGroupId(null);
+                    }}
+                    className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${
+                      activeTab === "dm" && recipientId === u.id
+                        ? "bg-[var(--color-accent)] text-white shadow-sm font-semibold"
+                        : "hover:bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold text-xs ${activeTab === "dm" && recipientId === u.id ? "bg-white/20" : "bg-gradient-to-tr from-[#0071e3] to-[#5856d6] text-white"}`}>
+                      {(u.name || u.email)?.[0]?.toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs truncate font-bold">{u.name || u.email}</div>
+                      <div className="text-[10px] opacity-75 truncate capitalize">{u.role?.replace("_", " ")}</div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Main Chat Area */}
+      {/* ── Main Chat Messaging Area ── */}
       <div className="flex-1 flex flex-col bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-2xl shadow-sm overflow-hidden relative">
-        
-        {/* Chat Header */}
-        <div className="px-6 py-4 bg-[var(--color-surface)] border-b border-[var(--color-border)] flex items-center gap-3 shadow-sm z-10">
-           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0071e3] to-[#5856d6] flex items-center justify-center text-white shadow-sm shrink-0">
-             {recipientId ? <UserIcon size={20}/> : <MessageSquare size={20}/>}
-           </div>
-           <div>
-             <h2 className="font-bold text-[var(--color-text-primary)] leading-tight">{currentChatName}</h2>
-             <p className="text-[0.75rem] text-[var(--color-text-tertiary)] font-medium">
-               {recipientId ? "Professional direct message" : "Enterprise real-time communication"}
-             </p>
-           </div>
+        {/* Header */}
+        <div className="px-6 py-3.5 bg-[var(--color-surface)] border-b border-[var(--color-border)] flex items-center justify-between shadow-xs z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#0071e3] to-[#5856d6] flex items-center justify-center text-white shadow-xs">
+              {activeTab === "group" ? <Users size={18} /> : activeTab === "dm" ? <UserIcon size={18} /> : <MessageSquare size={18} />}
+            </div>
+            <div>
+              <h2 className="font-bold text-sm text-[var(--color-text-primary)] leading-tight">{activeHeaderTitle}</h2>
+              <p className="text-[11px] text-[var(--color-text-secondary)] font-medium">
+                {activeTab === "dm" ? "Direct encrypted messaging" : activeTab === "group" ? "Dedicated Group Channel" : "Enterprise Real-time Team Communication"}
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Messages Container (WhatsApp style background) */}
-        <div 
-          className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar bg-[#efeae2] dark:bg-[#0b141a]" 
-          style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/cubes.png")', backgroundBlendMode: 'overlay', opacity: 0.95 }}
-          onClick={() => setOpenMenuId(null)}
-        >
+        {/* Message Feed */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar bg-[#efeae2] dark:bg-[#0b141a]">
           {isLoading && messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-gray-500 gap-2 bg-white/80 dark:bg-black/50 p-3 rounded-full w-fit mx-auto shadow-sm text-sm">
-              <Loader2 className="animate-spin" size={16} /> Loading messages...
+            <div className="flex items-center justify-center h-full text-gray-500 gap-2 bg-white/80 dark:bg-black/50 p-3 rounded-full w-fit mx-auto shadow-sm text-xs font-medium">
+              <Loader2 className="animate-spin" size={16} /> Loading messages…
             </div>
           ) : messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
-              <div className="bg-[#ffeecd] dark:bg-[#182229] text-[#54656f] dark:text-[#8696a0] px-4 py-2 rounded-lg text-sm shadow-sm font-medium">
-                No messages yet. Start the conversation!
+              <div className="bg-white/80 dark:bg-[#182229] text-[#54656f] dark:text-[#8696a0] px-4 py-2 rounded-xl text-xs shadow-sm font-medium border border-[var(--color-border)]">
+                No messages in this thread yet. Send a message to start!
               </div>
             </div>
           ) : (
             messages.map((msg, index) => {
               const isMe = msg.userId === myUserId;
-              const isSystemAdmin = msg.userRole === "admin";
-              const showAvatar = !recipientId && (index === 0 || messages[index - 1].userId !== msg.userId);
-
               return (
                 <div key={msg.id} className={`flex gap-2 ${isMe ? "flex-row-reverse" : "flex-row"} items-end`}>
-                  {showAvatar ? (
-                    <div className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-white text-[0.6rem] font-bold shadow-sm ${isSystemAdmin ? "bg-gradient-to-br from-[#ff3b30] to-[#ff6b00]" : "bg-gradient-to-br from-[#0071e3] to-[#5856d6]"}`}>
-                      {msg.userName?.[0]?.toUpperCase() || msg.userEmail?.[0]?.toUpperCase() || <UserIcon size={12} />}
-                    </div>
-                  ) : (
-                    !recipientId && <div className="w-7 shrink-0" />
-                  )}
+                  <div className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-white text-[10px] font-bold shadow-xs ${isMe ? "bg-[#0071e3]" : "bg-gradient-to-br from-[#5856d6] to-[#7c3aed]"}`}>
+                    {(msg.userName || msg.userEmail)?.[0]?.toUpperCase() || <UserIcon size={12} />}
+                  </div>
 
                   <div className={`flex flex-col ${isMe ? "items-end" : "items-start"} max-w-[80%] relative group`}>
-                    {!recipientId && showAvatar && !isMe && (
-                      <span className="text-[0.7rem] font-bold text-[#53bdeb] mb-0.5 ml-1 flex items-center gap-1">
-                        {isSystemAdmin && <Shield size={10} className="text-[#ff3b30]" />}
-                        {msg.userName || msg.userEmail} 
+                    {!isMe && (
+                      <span className="text-[10px] font-bold text-[var(--color-accent)] mb-0.5 ml-1">
+                        {msg.userName || msg.userEmail}
                       </span>
                     )}
-                    
-                    <div className={`relative px-3 pt-2 pb-1.5 text-[0.95rem] rounded-xl shadow-sm flex flex-col ${
-                      isMe 
-                        ? "bg-[#d9fdd3] dark:bg-[#005c4b] text-[#111b21] dark:text-[#e9edef] rounded-tr-none" 
-                        : "bg-white dark:bg-[#202c33] text-[#111b21] dark:text-[#e9edef] rounded-tl-none border border-black/5 dark:border-white/5"
+
+                    <div className={`relative px-3.5 py-2 text-xs rounded-2xl shadow-xs flex flex-col ${
+                      isMe
+                        ? "bg-[#0071e3] text-white rounded-tr-none"
+                        : "bg-white text-[var(--color-text-primary)] rounded-tl-none border border-[var(--color-border)]"
                     }`}>
-                      
-                      {/* Attachment */}
                       {msg.fileUrl && (
-                        <a href={msg.fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-2.5 bg-black/5 dark:bg-white/5 rounded-lg mb-1.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
-                          <div className="bg-[var(--color-accent)] text-white p-2 rounded-full"><FileIcon size={16} /></div>
-                          <span className="text-sm truncate font-medium max-w-[150px] md:max-w-[250px]">{msg.fileName || "Attachment"}</span>
+                        <a href={msg.fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-2 bg-black/10 rounded-lg mb-1 hover:bg-black/20 transition-colors">
+                          <FileIcon size={14} />
+                          <span className="text-[11px] truncate font-semibold">{msg.fileName || "Attachment"}</span>
                         </a>
                       )}
 
-                      {/* Message body or Edit Input */}
-                      {editingId === msg.id ? (
-                        <form onSubmit={handleEditSubmit} className="flex flex-col gap-2 min-w-[200px]">
-                          <textarea 
-                            autoFocus
-                            value={editingText}
-                            onChange={e => setEditingText(e.target.value)}
-                            className="text-sm p-2 rounded border border-black/20 bg-white/50 dark:bg-black/20 text-black dark:text-white resize-none"
-                            rows={3}
-                          />
-                          <div className="flex justify-end gap-2">
-                            <button type="button" onClick={() => setEditingId(null)} className="text-xs font-semibold px-2 py-1 rounded bg-black/10 hover:bg-black/20">Cancel</button>
-                            <button type="submit" className="text-xs font-semibold px-2 py-1 rounded bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)]">Save</button>
-                          </div>
-                        </form>
-                      ) : (
-                        <div className="break-words leading-relaxed whitespace-pre-wrap">{msg.message}</div>
-                      )}
+                      <div className="break-words leading-relaxed">{msg.message}</div>
 
-                      <div className="text-[0.65rem] opacity-60 text-right mt-0.5 flex justify-end gap-1.5 items-center float-right ml-4">
-                        {msg.isEdited && <span>edited</span>}
-                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <div className="text-[9px] opacity-70 text-right mt-1">
+                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </div>
                     </div>
-
-                    {/* Three-dot menu for edit/delete */}
-                    {(isAdmin || isMe) && editingId !== msg.id && (
-                      <div className="absolute top-1 -right-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === msg.id ? null : msg.id); }}
-                          className="p-1 rounded-full bg-white/80 dark:bg-black/50 shadow-sm text-gray-600 hover:text-black"
-                        >
-                          <MoreVertical size={14} />
-                        </button>
-                        {openMenuId === msg.id && (
-                          <div className="absolute top-6 right-0 bg-white dark:bg-[#202c33] border border-black/10 rounded-lg shadow-xl z-20 flex flex-col py-1 min-w-[100px] text-sm overflow-hidden animate-fade-in">
-                            <button onClick={() => { setEditingId(msg.id); setEditingText(msg.message); setOpenMenuId(null); }} className="flex items-center gap-2 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 text-left text-[var(--color-text-primary)]">
-                              <Edit2 size={14} /> Edit
-                            </button>
-                            <button onClick={() => handleDelete(msg.id)} className="flex items-center gap-2 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 text-left text-red-500">
-                              <Trash2 size={14} /> Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
               );
@@ -357,60 +467,114 @@ export default function ChatPage({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area */}
-        <div className="p-3 bg-[#f0f2f5] dark:bg-[#202c33] border-t border-black/10">
+        {/* Input Bar */}
+        <div className="p-3 bg-[var(--color-surface)] border-t border-[var(--color-border)]">
           {file && (
-             <div className="mb-3 p-3 bg-white dark:bg-[#111b21] rounded-xl flex items-center justify-between border border-black/10 shadow-sm">
-               <div className="flex items-center gap-3 overflow-hidden">
-                 <div className="bg-[var(--color-accent)]/10 text-[var(--color-accent)] p-2 rounded-lg">
-                   <FileIcon size={20} />
-                 </div>
-                 <span className="text-sm font-medium truncate text-[var(--color-text-primary)]">{file.name}</span>
-               </div>
-               <button onClick={() => setFile(null)} className="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors">
-                 <X size={16} />
-               </button>
-             </div>
+            <div className="mb-2 p-2 rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border)] flex items-center justify-between text-xs">
+              <span className="truncate font-semibold text-[var(--color-accent)]">{file.name}</span>
+              <button type="button" onClick={() => setFile(null)} className="text-xs text-rose-500 font-bold hover:underline">Remove</button>
+            </div>
           )}
-          <form onSubmit={handleSend} className="flex gap-2 items-end relative">
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              onChange={e => e.target.files?.[0] && setFile(e.target.files[0])}
-            />
+          <form onSubmit={handleSend} className="flex items-center gap-2">
+            <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="p-3 text-[#54656f] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#e9edef] transition-colors"
+              className="p-2 rounded-xl text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-primary)] transition-colors"
               title="Attach File"
             >
-              <Paperclip size={24} />
+              <Paperclip size={18} />
             </button>
-            <textarea
+            <input
+              type="text"
+              placeholder="Type your message…"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend(e as unknown as React.FormEvent);
-                }
-              }}
-              placeholder="Type a message"
-              className="flex-1 bg-white dark:bg-[#2a3942] text-[#111b21] dark:text-[#e9edef] px-4 py-3 rounded-xl focus:outline-none focus:ring-0 border-none shadow-sm min-h-[44px] max-h-[120px] resize-none custom-scrollbar"
-              rows={1}
-              disabled={sending}
+              className="input flex-1 py-2 text-xs bg-[var(--color-bg-primary)] border-[var(--color-border)]"
             />
             <button
               type="submit"
               disabled={(!newMessage.trim() && !file) || sending}
-              className="p-3 bg-[var(--color-accent)] text-white rounded-xl hover:bg-[var(--color-accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm ml-1"
+              className="btn-primary py-2 px-3 text-xs"
             >
-              {sending ? <Loader2 size={24} className="animate-spin" /> : <Send size={24} />}
+              {sending ? <Loader2 className="animate-spin" size={14} /> : <Send size={14} />}
             </button>
           </form>
         </div>
       </div>
+
+      {/* ── Create Group Modal ── */}
+      {showCreateGroupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="glass-card w-full max-w-md bg-[var(--color-surface)] p-6 rounded-2xl border border-[var(--color-border)] shadow-2xl flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
+              <h3 className="font-bold text-base text-[var(--color-text-primary)]">Create New Group Channel</h3>
+              <button onClick={() => setShowCreateGroupModal(false)} className="text-[var(--color-text-tertiary)] hover:text-black">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateGroup} className="flex flex-col gap-3 text-xs">
+              <div>
+                <label className="font-bold mb-1 block">Group Channel Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Export Calling Desk"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  className="input w-full"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold mb-1 block">Description (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Dedicated coordination for overseas calls"
+                  value={groupDesc}
+                  onChange={(e) => setGroupDesc(e.target.value)}
+                  className="input w-full"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold mb-1 block">Select Members ({selectedMemberIds.length} selected)</label>
+                <div className="max-h-48 overflow-y-auto border border-[var(--color-border)] rounded-xl p-2 bg-[var(--color-bg-primary)] space-y-1.5 custom-scrollbar">
+                  {usersList.map((u) => (
+                    <label key={u.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-[var(--color-surface)] cursor-pointer text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#0071e3] to-[#5856d6] text-white flex items-center justify-center text-[10px] font-bold">
+                          {(u.name || u.email)?.[0]?.toUpperCase()}
+                        </span>
+                        <div>
+                          <div className="font-bold">{u.name || u.email}</div>
+                          <div className="text-[10px] text-[var(--color-text-tertiary)] capitalize">{u.role?.replace("_", " ")}</div>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectedMemberIds.includes(u.id)}
+                        onChange={() => handleToggleMember(u.id)}
+                        className="rounded accent-[var(--color-accent)]"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-[var(--color-border)]">
+                <button type="button" onClick={() => setShowCreateGroupModal(false)} className="btn-secondary py-1.5 px-3">
+                  Cancel
+                </button>
+                <button type="submit" disabled={creatingGroup || !groupName.trim()} className="btn-primary py-1.5 px-4">
+                  {creatingGroup ? "Creating…" : "Create Group"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

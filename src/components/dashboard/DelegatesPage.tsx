@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from "react";
 import useSWR from "swr";
-import { Search, Users, Globe, RefreshCw, Building2, X } from "lucide-react";
+import { Search, Users, Globe, RefreshCw, Building2, X, Thermometer } from "lucide-react";
 import type { RegistrationRow } from "@/lib/crm-utils";
+import { normalizeRole, canViewSettings } from "@/lib/rbac";
+import { TEMPERATURE_META } from "@/lib/lead-scoring";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -27,7 +29,7 @@ export default function DelegatesPage({ role }: Props) {
   const [sector, setSector]     = useState("");
   const [showExcl, setShowExcl] = useState(true);
 
-  const isAdmin = role === "admin";
+  const isAdmin = canViewSettings(normalizeRole(role));
 
   // Unique filter options
   const countries = useMemo(() =>
@@ -172,13 +174,14 @@ export default function DelegatesPage({ role }: Props) {
                 <th>Sector 2</th>
                 <th>POC</th>
                 <th className="text-center">Flight &amp; Hotel</th>
+                <th className="text-center">Lead Temp</th>
                 {isAdmin && <th className="text-center">Status</th>}
               </tr>
             </thead>
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={isAdmin ? 10 : 9} className="text-center py-12 text-[var(--color-text-tertiary)]">
+                  <td colSpan={isAdmin ? 11 : 10} className="text-center py-12 text-[var(--color-text-tertiary)]">
                     <RefreshCw size={18} className="inline animate-spin mr-2" />Loading delegates…
                   </td>
                 </tr>
@@ -222,6 +225,24 @@ export default function DelegatesPage({ role }: Props) {
                       ) : (
                         <span className="text-[var(--color-text-tertiary)] text-xs">—</span>
                       )}
+                    </td>
+                    <td className="text-center">
+                      {(() => {
+                        const temp = (r as { lead_temperature?: string | null }).lead_temperature;
+                        if (!temp) return <span style={{ color: "var(--color-text-tertiary)", fontSize: "0.7rem" }}>—</span>;
+                        const meta = TEMPERATURE_META[temp as keyof typeof TEMPERATURE_META];
+                        if (!meta) return <span style={{ fontSize: "0.7rem" }}>{temp}</span>;
+                        return (
+                          <span style={{
+                            background: meta.bg, color: meta.color,
+                            padding: "2px 7px", borderRadius: 10,
+                            fontSize: "0.65rem", fontWeight: 700,
+                            display: "inline-flex", alignItems: "center", gap: 3,
+                          }}>
+                            {meta.emoji} {temp}
+                          </span>
+                        );
+                      })()}
                     </td>
                     {isAdmin && (
                       <td className="text-center">

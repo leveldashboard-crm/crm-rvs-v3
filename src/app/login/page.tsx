@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, Globe, Users, Plane } from "lucide-react";
+import { Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 function LoginForm() {
@@ -22,12 +22,15 @@ function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPass, setShowPass] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password.trim()) {
+      toast.error("Please enter Username ID and Password");
+      return;
+    }
     setIsPending(true);
     try {
       console.log("[Login] Attempting sign in for:", email);
@@ -54,123 +57,219 @@ function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSignIn} className="flex flex-col gap-4">
+    <form onSubmit={handleSignIn} className="w-full space-y-6">
       <input type="hidden" name="callbackUrl" value={callbackUrl} />
-      <div>
-        <label className="label" htmlFor="email">Username / Email</label>
-        <input
-          id="email"
-          name="email"
-          type="text"
-          autoComplete="username"
-          required
-          className="input"
-          placeholder="admin"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      </div>
-      <div>
-        <label className="label" htmlFor="password">Password</label>
-        <div className="relative">
+      
+      {/* Input Group Block */}
+      <div 
+        style={{
+          border: "1px solid var(--color-border-strong)",
+          borderRadius: 16,
+          overflow: "hidden",
+          background: "transparent",
+          display: "flex",
+          flexDirection: "column",
+          boxShadow: "var(--shadow-sm)",
+          transition: "all 0.15s ease",
+        }}
+        className="focus-within-ring"
+      >
+        <div style={{ borderBottom: "1px solid var(--color-border)" }}>
+          <input
+            id="email"
+            name="email"
+            type="text"
+            autoComplete="username"
+            required
+            style={{
+              width: "100%",
+              padding: "14px 16px",
+              background: "transparent",
+              border: 0,
+              outline: "none",
+              fontSize: "0.875rem",
+              color: "var(--color-text-primary)",
+            }}
+            placeholder="Username ID"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <div>
           <input
             id="password"
             name="password"
-            type={showPass ? "text" : "password"}
+            type="password"
             autoComplete="current-password"
             required
-            className="input pr-11"
-            placeholder="••••••••"
+            style={{
+              width: "100%",
+              padding: "14px 16px",
+              background: "transparent",
+              border: 0,
+              outline: "none",
+              fontSize: "0.875rem",
+              color: "var(--color-text-primary)",
+            }}
+            placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <button
-            type="button"
-            onClick={() => setShowPass(!showPass)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors rounded-md bg-transparent border-none cursor-pointer"
-          >
-            {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
         </div>
       </div>
-      <button
-        type="submit"
-        disabled={isPending}
-        className="btn-primary w-full justify-center py-2.5 text-[0.9375rem] mt-2 shadow-sm font-semibold"
-      >
-        {isPending ? (
-          <>
-            <Loader2 size={16} className="animate-spin" /> Signing in…
-          </>
-        ) : (
-          "Sign in"
-        )}
-      </button>
+
+      {/* Button wrapper */}
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <button
+          type="submit"
+          disabled={isPending}
+          style={{
+            width: "100%",
+            background: "#0071e3",
+            color: "white",
+            fontWeight: 600,
+            borderRadius: 99,
+            padding: "13px 16px",
+            fontSize: "0.875rem",
+            border: "none",
+            cursor: isPending ? "not-allowed" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            boxShadow: "0 2px 4px rgba(0,113,227,0.15)",
+            transition: "all 0.15s ease",
+          }}
+          onMouseEnter={e => { if (!isPending) e.currentTarget.style.background = "#0077ed"; }}
+          onMouseLeave={e => { if (!isPending) e.currentTarget.style.background = "#0071e3"; }}
+          onMouseDown={e => { if (!isPending) e.currentTarget.style.transform = "scale(0.98)"; }}
+          onMouseUp={e => { if (!isPending) e.currentTarget.style.transform = "scale(1)"; }}
+        >
+          {isPending ? (
+            <>
+              <Loader2 size={16} className="animate-spin" /> Signing In…
+            </>
+          ) : (
+            "Sign In"
+          )}
+        </button>
+      </div>
     </form>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden bg-gradient-to-br from-[#f5f5f7] via-[#e8eaf0] to-[#f0f4ff]">
-      {/* Background blobs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[15%] -right-[10%] w-[520px] h-[520px] rounded-full bg-[radial-gradient(circle,rgba(0,113,227,0.08)_0%,transparent_70%)]" />
-        <div className="absolute -bottom-[10%] -left-[8%] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(88,86,214,0.07)_0%,transparent_70%)]" />
-      </div>
-
-      <div className="w-full max-w-[420px] relative">
-        <div className="glass-card-elevated animate-scale-in overflow-hidden shadow-2xl border border-[var(--color-border)] rounded-2xl">
-          {/* macOS title bar */}
-          <div className="px-5 py-3.5 border-b border-[var(--color-border)] flex items-center gap-3 bg-[var(--color-surface)]">
-            <div className="traffic-lights">
-              <span className="traffic-light traffic-light-red" />
-              <span className="traffic-light traffic-light-yellow" />
-              <span className="traffic-light traffic-light-green" />
-            </div>
-            <span className="flex-1 text-center text-[0.8125rem] font-semibold text-[var(--color-text-secondary)]">
-              DelegateConnect — Staff Portal
-            </span>
-          </div>
-
-          <div className="p-8 pt-10 pb-10">
-            {/* Logo */}
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-[14px] bg-gradient-to-br from-[#0071e3] to-[#5856d6] mb-4 shadow-[0_8px_24px_rgba(0,113,227,0.3)]">
-                <Globe size={28} color="white" />
-              </div>
-              <h1 className="text-[1.375rem] font-bold text-[var(--color-text-primary)] mb-1 tracking-tight">Welcome back</h1>
-              <p className="text-[0.875rem] font-medium text-[var(--color-text-secondary)]">Sign in to International Delegate CRM</p>
-            </div>
-
-            {/* Feature pills */}
-            <div className="flex gap-2 justify-center mb-7 flex-wrap">
-              {[
-                { icon: <Users size={12} className="opacity-70" />, label: "Delegate Mgmt" },
-                { icon: <Plane size={12} className="opacity-70" />, label: "Travel Desk" },
-                { icon: <Globe size={12} className="opacity-70" />, label: "Analytics" },
-              ].map(({ icon, label }) => (
-                <span key={label} className="badge badge-neutral px-2.5 py-1 text-[0.7rem] bg-[var(--color-border)]/50 font-medium">
-                  {icon} <span className="ml-0.5">{label}</span>
-                </span>
-              ))}
-            </div>
-
-            {/* Form wrapped in Suspense for useSearchParams */}
-            <Suspense fallback={<div className="text-center text-[var(--color-text-tertiary)] py-4 font-medium"><Loader2 size={24} className="animate-spin mx-auto text-[var(--color-accent)]" /></div>}>
-              <LoginForm />
-            </Suspense>
-
-            <p className="mt-5 text-center text-[0.8125rem] text-[var(--color-text-tertiary)] font-medium">
-              Accounts are created by an administrator.
-            </p>
-          </div>
+    <div 
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "var(--color-surface)",
+        padding: "0 16px",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      }}
+    >
+      <div 
+        style={{
+          width: "100%",
+          maxWidth: 360,
+          padding: "48px 0",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+        }}
+      >
+        {/* Rounded Lock Icon */}
+        <div 
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: "50%",
+            background: "rgba(0, 0, 0, 0.02)",
+            border: "1px solid rgba(0, 0, 0, 0.05)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 24,
+            boxShadow: "var(--shadow-sm)",
+          }}
+        >
+          <Lock size={24} style={{ color: "var(--color-text-primary)", opacity: 0.8 }} strokeWidth={1.5} />
         </div>
 
-        <p className="text-center mt-6 text-[0.75rem] font-medium text-[var(--color-text-tertiary)] tracking-wide">
-          DelegateConnect Enterprise · Powered by Supabase + Next.js
+        {/* Title */}
+        <h1 
+          style={{
+            fontSize: "1.5rem",
+            fontWeight: 600,
+            letterSpacing: "-0.02em",
+            color: "var(--color-text-primary)",
+            marginBottom: 8,
+            textAlign: "center",
+          }}
+        >
+          Sign in with Administrator ID
+        </h1>
+
+        {/* Subtitle */}
+        <p 
+          style={{
+            fontSize: "0.775rem",
+            color: "var(--color-text-tertiary)",
+            textAlign: "center",
+            marginBottom: 32,
+            maxWidth: 280,
+            lineHeight: 1.45,
+          }}
+        >
+          Manage delegate database, travel allocations, and live calling panels.
         </p>
+
+        {/* Form Container */}
+        <div style={{ width: "100%" }}>
+          <Suspense fallback={
+            <div style={{ textAlign: "center", padding: 20 }}>
+              <Loader2 size={24} className="animate-spin" style={{ margin: "0 auto", color: "#0071e3" }} />
+            </div>
+          }>
+            <LoginForm />
+          </Suspense>
+        </div>
+
+        {/* Footer Link */}
+        <div 
+          style={{
+            marginTop: 32,
+            borderTop: "1px solid rgba(0, 0, 0, 0.05)",
+            paddingTop: 24,
+            width: "100%",
+            textAlign: "center",
+          }}
+        >
+          <a 
+            href="/" 
+            style={{
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              color: "#0071e3",
+              textDecoration: "none",
+            }}
+            onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
+            onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}
+          >
+            Go to public dashboard
+          </a>
+        </div>
       </div>
+
+      <style>{`
+        .focus-within-ring:focus-within {
+          border-color: #0071e3 !important;
+          box-shadow: 0 0 0 1px #0071e3 !important;
+        }
+      `}</style>
     </div>
   );
 }

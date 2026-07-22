@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { sql } from "drizzle-orm";
 
 export interface AuditParams {
+  eventId?: string;
   userId?: number | null;
   userName?: string;
   userRole?: string;
@@ -13,10 +14,8 @@ export interface AuditParams {
   metadata?: Record<string, unknown>;
 }
 
-// Audit log schema is fully guaranteed by migrations and setup, no runtime DDL checks are required.
-async function ensureAuditSchema() {
-  return;
-}
+// v3 alias — used in new API routes
+export type AuditEntry = AuditParams;
 
 /**
  * Enterprise-grade audit logger.
@@ -24,13 +23,12 @@ async function ensureAuditSchema() {
  */
 export async function writeAuditLog(params: AuditParams): Promise<void> {
   try {
-    await ensureAuditSchema();
-
     await db.execute(sql`
       INSERT INTO audit_log
-        (user_id, user_name, user_role, action, entity_type, entity_id, status, ip_address, metadata, created_at)
+        (event_id, user_id, user_name, user_role, action, entity_type, entity_id, status, ip_address, metadata, created_at)
       VALUES
-        (${params.userId ?? null},
+        (${params.eventId ?? "bharat_buildcon_2026"},
+         ${params.userId ?? null},
          ${params.userName ?? null},
          ${params.userRole ?? null},
          ${params.action},
@@ -47,6 +45,15 @@ export async function writeAuditLog(params: AuditParams): Promise<void> {
 }
 
 /**
+ * Write multiple audit entries at once (batch operations).
+ */
+export async function writeAuditLogs(entries: AuditParams[]): Promise<void> {
+  for (const entry of entries) {
+    await writeAuditLog(entry);
+  }
+}
+
+/**
  * Auto-creates the operation_permissions table if it doesn't exist.
  * Uses a process-level flag so the DDL only runs once per server restart.
  */
@@ -54,3 +61,4 @@ export async function ensureOpPermTable(): Promise<void> {
   // Table schema is already guaranteed by setup and migrations.
   return;
 }
+

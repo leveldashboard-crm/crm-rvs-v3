@@ -262,17 +262,54 @@ export async function GET(request: Request) {
   // ── 9. Default settings row ───────────────────────────────────────────────────
   await run("default settings row", `INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
 
-  // ── 10. Seed admin user (parameterised — no SQL injection) ─────────────────────
+  // ── 10. Seed v3 enterprise role users ──────────────────────────────────────────
   const passwordHash = hashPassword("buildcon2026");
   try {
+    // Seed master admin
     await sql`
       INSERT INTO users (email, password_hash, name, role)
-      VALUES ('admin', ${passwordHash}, 'Admin', 'admin')
-      ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'admin'
+      VALUES ('admin', ${passwordHash}, 'Admin User', 'master_admin')
+      ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'master_admin'
     `;
-    results.push({ step: "admin user (admin/buildcon2026)", status: "✓" });
+
+    // Seed regional admin
+    await sql`
+      INSERT INTO users (email, password_hash, name, role, region, continent)
+      VALUES ('regional_admin', ${passwordHash}, 'Regional Admin User', 'regional_admin', 'Asia Pacific', 'Asia')
+      ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'regional_admin'
+    `;
+
+    // Seed team lead
+    await sql`
+      INSERT INTO users (email, password_hash, name, role)
+      VALUES ('team_lead', ${passwordHash}, 'Team Lead User', 'team_lead')
+      ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'team_lead'
+    `;
+
+    // Seed caller
+    await sql`
+      INSERT INTO users (email, password_hash, name, role)
+      VALUES ('caller', ${passwordHash}, 'Caller User', 'caller')
+      ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'caller'
+    `;
+
+    // Seed qa auditor
+    await sql`
+      INSERT INTO users (email, password_hash, name, role)
+      VALUES ('qa_auditor', ${passwordHash}, 'QA Auditor User', 'qa_auditor')
+      ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'qa_auditor'
+    `;
+
+    // Seed analyst
+    await sql`
+      INSERT INTO users (email, password_hash, name, role)
+      VALUES ('analyst', ${passwordHash}, 'Analyst User', 'analyst')
+      ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'analyst'
+    `;
+
+    results.push({ step: "seeding v3 role accounts", status: "✓" });
   } catch (err: unknown) {
-    results.push({ step: "admin user (admin/buildcon2026)", status: "✗", error: err instanceof Error ? err.message : String(err) });
+    results.push({ step: "seeding v3 role accounts", status: "✗", error: err instanceof Error ? err.message : String(err) });
   }
 
   await sql.end();
@@ -282,9 +319,17 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: allOk,
     message: allOk
-      ? "✅ Database initialized! You can now login with: admin / buildcon2026"
-      : "⚠️ Some steps had errors — check results below",
+      ? "✅ Database initialized and seeded with all 6 v3 role accounts! Password is: buildcon2026"
+      : "⚠️ Some setup steps had errors — check results below",
     results,
-    credentials: allOk ? { username: "admin", password: "buildcon2026" } : undefined,
+    credentials: {
+      master_admin:   { username: "admin",          password: "buildcon2026" },
+      regional_admin: { username: "regional_admin", password: "buildcon2026" },
+      team_lead:       { username: "team_lead",      password: "buildcon2026" },
+      caller:          { username: "caller",         password: "buildcon2026" },
+      qa_auditor:      { username: "qa_auditor",     password: "buildcon2026" },
+      analyst:         { username: "analyst",        password: "buildcon2026" },
+    },
   });
 }
+

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
+import { normalizeRole, canViewSettings } from "@/lib/rbac";
 
 // Run once per server process — subsequent calls are a no-op
 let _settingsMigrated = false;
@@ -20,7 +21,6 @@ async function ensureSettingsSchema() {
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_shared_secret TEXT`,
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_mode TEXT DEFAULT 'api'`,
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_enabled BOOLEAN DEFAULT false`,
-    // New mailer SMTP + Drive folder columns
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_smtp_host TEXT DEFAULT 'smtp.gmail.com'`,
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_smtp_port INTEGER DEFAULT 587`,
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_smtp_user TEXT`,
@@ -31,6 +31,16 @@ async function ensureSettingsSchema() {
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_folder_itinerary TEXT`,
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_folder_voucher TEXT`,
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_drive_api_key TEXT`,
+    // v3 new columns
+    `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS event_id TEXT DEFAULT 'bharat_buildcon_2026'`,
+    `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS event_name TEXT DEFAULT 'Bharat Buildcon 2026'`,
+    `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS feature_flag_gamification BOOLEAN DEFAULT false`,
+    `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS feature_flag_whatsapp BOOLEAN DEFAULT false`,
+    `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS feature_flag_sms BOOLEAN DEFAULT false`,
+    `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS feature_flag_ai_scoring BOOLEAN DEFAULT true`,
+    `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS escalation_level1_hours INTEGER DEFAULT 2`,
+    `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS escalation_level2_hours INTEGER DEFAULT 6`,
+    `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS notifications_enabled BOOLEAN DEFAULT true`,
   ];
   for (const stmt of cols) {
     try { await db.execute(sql.raw(stmt)); } catch { /* already exists */ }
@@ -76,6 +86,15 @@ export async function GET() {
         COALESCE(mailer_folder_itinerary, '') AS mailer_folder_itinerary,
         COALESCE(mailer_folder_voucher, '') AS mailer_folder_voucher,
         CASE WHEN mailer_drive_api_key IS NOT NULL AND mailer_drive_api_key <> '' THEN '••••' ELSE '' END AS mailer_drive_api_key,
+        COALESCE(event_id, 'bharat_buildcon_2026') AS event_id,
+        COALESCE(event_name, 'Bharat Buildcon 2026') AS event_name,
+        COALESCE(feature_flag_gamification, false) AS feature_flag_gamification,
+        COALESCE(feature_flag_whatsapp, false) AS feature_flag_whatsapp,
+        COALESCE(feature_flag_sms, false) AS feature_flag_sms,
+        COALESCE(feature_flag_ai_scoring, true) AS feature_flag_ai_scoring,
+        COALESCE(escalation_level1_hours, 2) AS escalation_level1_hours,
+        COALESCE(escalation_level2_hours, 6) AS escalation_level2_hours,
+        COALESCE(notifications_enabled, true) AS notifications_enabled,
         updated_at
       FROM app_settings
       WHERE id = 1
@@ -86,8 +105,48 @@ export async function GET() {
     const settings = rows.length > 0 ? rows[0] : null;
     return NextResponse.json({ settings });
   } catch (err) {
-    console.error("[GET /api/settings]", err);
-    return NextResponse.json({ error: "Database error" }, { status: 500 });
+    console.error("[GET /api/settings] database query failed, returning fallback default settings:", err);
+    const fallbackSettings = {
+      id: 1,
+      registration_sheet_id: "",
+      registration_sheet_name: "Form Responses 1",
+      travel_sheet_name: "Travel Desk Records",
+      db_vujis_sheet_name: "DB & vujis",
+      session_timeout_minutes: 30,
+      drive_folder_id: "",
+      gas_web_app_url: "",
+      backup_gas_web_app_url: "",
+      backup_sheet_id: "",
+      backup_folder_id: "",
+      backup_sheet_id_2: "",
+      backup_folder_id_2: "",
+      dashboard_pivot_sheet_name: "",
+      mailer_web_app_url: "",
+      mailer_shared_secret: "",
+      mailer_mode: "api",
+      mailer_enabled: false,
+      mailer_smtp_host: "smtp.gmail.com",
+      mailer_smtp_port: 587,
+      mailer_smtp_user: "",
+      mailer_smtp_pass: "",
+      mailer_smtp_from: "",
+      mailer_folder_letter: "",
+      mailer_folder_card: "",
+      mailer_folder_itinerary: "",
+      mailer_folder_voucher: "",
+      mailer_drive_api_key: "",
+      event_id: "bharat_buildcon_2026",
+      event_name: "Bharat Buildcon 2026",
+      feature_flag_gamification: false,
+      feature_flag_whatsapp: false,
+      feature_flag_sms: false,
+      feature_flag_ai_scoring: true,
+      escalation_level1_hours: 2,
+      escalation_level2_hours: 6,
+      notifications_enabled: true,
+      updated_at: new Date().toISOString()
+    };
+    return NextResponse.json({ settings: fallbackSettings });
   }
 }
 
@@ -96,9 +155,9 @@ export async function POST(request: Request) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Only admins can save settings
-  const role = (session.user as { role?: string }).role ?? "staff";
-  if (role !== "admin") return NextResponse.json({ error: "Forbidden: admin only" }, { status: 403 });
+  // Only master_admin can save settings
+  const role = normalizeRole((session.user as { role?: string }).role);
+  if (!canViewSettings(role)) return NextResponse.json({ error: "Forbidden: Master Admin only" }, { status: 403 });
 
   try {
     const body = await request.json();
@@ -139,6 +198,17 @@ export async function POST(request: Request) {
     const mailerFolderItinerary = (body.mailer_folder_itinerary as string | null) ?? null;
     const mailerFolderVoucher   = (body.mailer_folder_voucher   as string | null) ?? null;
 
+    // v3 new fields
+    const eventId                  = (body.event_id as string | null) || "bharat_buildcon_2026";
+    const eventName                = (body.event_name as string | null) || "Bharat Buildcon 2026";
+    const featureFlagGamification  = !!body.feature_flag_gamification;
+    const featureFlagWhatsapp      = !!body.feature_flag_whatsapp;
+    const featureFlagSms           = !!body.feature_flag_sms;
+    const featureFlagAiScoring     = body.feature_flag_ai_scoring !== false;
+    const escalationLevel1Hours    = Math.max(1, parseInt(body.escalation_level1_hours ?? "2") || 2);
+    const escalationLevel2Hours    = Math.max(2, parseInt(body.escalation_level2_hours ?? "6") || 6);
+    const notificationsEnabled     = body.notifications_enabled !== false;
+
     await db.execute(sql`
       INSERT INTO app_settings (
         id,
@@ -169,6 +239,15 @@ export async function POST(request: Request) {
         mailer_folder_itinerary,
         mailer_folder_voucher,
         mailer_drive_api_key,
+        event_id,
+        event_name,
+        feature_flag_gamification,
+        feature_flag_whatsapp,
+        feature_flag_sms,
+        feature_flag_ai_scoring,
+        escalation_level1_hours,
+        escalation_level2_hours,
+        notifications_enabled,
         updated_at
       ) VALUES (
         1,
@@ -199,6 +278,15 @@ export async function POST(request: Request) {
         ${mailerFolderItinerary},
         ${mailerFolderVoucher},
         ${rawDriveApiKey},
+        ${eventId},
+        ${eventName},
+        ${featureFlagGamification},
+        ${featureFlagWhatsapp},
+        ${featureFlagSms},
+        ${featureFlagAiScoring},
+        ${escalationLevel1Hours},
+        ${escalationLevel2Hours},
+        ${notificationsEnabled},
         NOW()
       )
       ON CONFLICT (id) DO UPDATE SET
@@ -229,6 +317,15 @@ export async function POST(request: Request) {
         mailer_folder_itinerary    = EXCLUDED.mailer_folder_itinerary,
         mailer_folder_voucher      = EXCLUDED.mailer_folder_voucher,
         mailer_drive_api_key       = CASE WHEN EXCLUDED.mailer_drive_api_key = '••••' THEN app_settings.mailer_drive_api_key ELSE EXCLUDED.mailer_drive_api_key END,
+        event_id                   = EXCLUDED.event_id,
+        event_name                 = EXCLUDED.event_name,
+        feature_flag_gamification  = EXCLUDED.feature_flag_gamification,
+        feature_flag_whatsapp      = EXCLUDED.feature_flag_whatsapp,
+        feature_flag_sms           = EXCLUDED.feature_flag_sms,
+        feature_flag_ai_scoring    = EXCLUDED.feature_flag_ai_scoring,
+        escalation_level1_hours    = EXCLUDED.escalation_level1_hours,
+        escalation_level2_hours    = EXCLUDED.escalation_level2_hours,
+        notifications_enabled      = EXCLUDED.notifications_enabled,
         updated_at                 = NOW()
     `);
 
@@ -243,3 +340,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+

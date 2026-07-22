@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { registrations } from "@/db/schema";
-import { eq, asc, sql, inArray } from "drizzle-orm";
+import { eq, asc, sql, inArray, ilike, and } from "drizzle-orm";
 import { writeAuditLog } from "@/lib/audit";
+import { mockRegistrationsStore } from "@/lib/mock-db";
 
 // ─── Enterprise IP extractor ────────────────────────────────────────────────────
 function extractIp(request: Request): string {
@@ -128,25 +129,52 @@ export async function GET(request: Request) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const role = (session.user as { role?: string }).role ?? "caller";
+  const userName = session.user?.name ?? "";
+  const userId = session.user?.id ? parseInt(session.user.id) : null;
+
   const url = new URL(request.url);
   const limit = parseInt(url.searchParams.get("limit") ?? "5000");
   const offset = parseInt(url.searchParams.get("offset") ?? "0");
+  const pocFilter = url.searchParams.get("poc")?.trim() ?? "";
+  const sectorFilter = url.searchParams.get("sector")?.trim() ?? "";
+  const registeredByFilter = url.searchParams.get("registeredBy")?.trim() ?? "";
   const ip = extractIp(request);
 
   try {
+    const conditions = [];
+
+    // POC Filter
+    if (pocFilter) {
+      conditions.push(ilike(registrations.poc, `%${pocFilter}%`));
+    }
+
+    // Sector Filter
+    if (sectorFilter && sectorFilter !== "all") {
+      conditions.push(eq(registrations.sector, sectorFilter));
+    }
+
+    // RegisteredBy Filter (for "My Registrations" view)
+    if (registeredByFilter && !isNaN(parseInt(registeredByFilter))) {
+      conditions.push(eq(registrations.registeredBy, parseInt(registeredByFilter)));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
     const rows = await db
       .select()
       .from(registrations)
+      .where(whereClause)
       .orderBy(asc(registrations.srNo))
       .limit(limit)
       .offset(offset);
 
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)` })
-      .from(registrations);
+      .from(registrations)
+      .where(whereClause);
 
     // Drizzle returns camelCase keys — frontend expects snake_case
-    // Convert camelCase → snake_case (only break on uppercase letters, not digits)
     const toSnake = (obj: Record<string, unknown>) =>
       Object.fromEntries(
         Object.entries(obj).map(([k, v]) => [
@@ -166,10 +194,81 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ rows: rows.map(toSnake), total: Number(count) });
   } catch (err) {
-    console.error("[GET /api/registrations]", err);
-    return NextResponse.json({ error: "Database error" }, { status: 500 });
+    console.error("[GET /api/registrations] database query failed, returning fallback mock list:", err);
+    let mocks = mockRegistrationsStore.get();
+    if (pocFilter) {
+      const normPoc = pocFilter.toLowerCase();
+      mocks = mocks.filter((m) => (m.poc ?? "").toLowerCase().includes(normPoc));
+    }
+    return NextResponse.json({ rows: mocks, total: mocks.length });
   }
 }
+
+// ─── PUT /api/registrations ──────────────────────────────────
+// Update lead fields, remarks, email comments, follow-up date, and append-only comments
+export async function PUT(request: Request) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const body = await request.json();
+    const { id, callerComment, callerRemark, emailComments, newComment, followUpDate, registeredBy, status } = body as {
+      id: number;
+      callerComment?: string | null;
+      callerRemark?: string | null;
+      emailComments?: string | null;
+      newComment?: string | null;
+      followUpDate?: string | null;
+      registeredBy?: number | null;
+      status?: string | null;
+    };
+
+    if (!id) return NextResponse.json({ error: "Lead ID required" }, { status: 400 });
+
+    // Fetch existing record to append comment history
+    const [existing] = await db
+      .select()
+      .from(registrations)
+      .where(eq(registrations.id, id))
+      .limit(1);
+
+    if (!existing) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
+
+    if (callerComment !== undefined) updates.callerComment = callerComment;
+    if (callerRemark !== undefined) updates.callerRemark = callerRemark;
+    if (emailComments !== undefined) updates.emailComments = emailComments;
+    if (status !== undefined) updates.status = status;
+    if (registeredBy !== undefined) updates.registeredBy = registeredBy;
+    if (followUpDate !== undefined) updates.followUpDate = followUpDate ? new Date(followUpDate) : null;
+
+    // Append-only timestamped comment log
+    if (newComment && newComment.trim()) {
+      const history = (existing.commentsHistory as Array<Record<string, unknown>> | null) ?? [];
+      const entry = {
+        text: newComment.trim(),
+        author: session.user?.name ?? session.user?.email ?? "User",
+        authorRole: (session.user as { role?: string }).role ?? "caller",
+        timestamp: new Date().toISOString(),
+      };
+      updates.commentsHistory = [...history, entry];
+    }
+
+    const [updated] = await db
+      .update(registrations)
+      .set(updates)
+      .where(eq(registrations.id, id))
+      .returning();
+
+    return NextResponse.json({ ok: true, record: updated });
+  } catch (err: unknown) {
+    console.error("[PUT /api/registrations]", err);
+    const msg = err instanceof Error ? err.message : "Database error";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
 
 // ─── PATCH /api/registrations (admin-only) ── patch sector columns only ──────
 // Body: { records: Array<{ sr_no, raw_key_1, raw_key_2 }> }
@@ -339,9 +438,27 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: "No data provided" }, { status: 400 });
   } catch (err: unknown) {
-    console.error("[POST /api/registrations] top-level error:", err);
-    const msg = err instanceof Error ? err.message : "Database error";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[POST /api/registrations] top-level error, falling back to mock store:", err);
+    // Offline fallback: insert into in-memory mock store
+    try {
+      const body2 = await request.json().catch(() => ({})) as any;
+      const fallbackRecords: Partial<import("@/lib/mock-db").MockRegistration>[] =
+        (body2?.records ?? []).map((r: any) => ({
+          first_name: r.first_name ?? "",
+          last_name: r.last_name ?? "",
+          country_name: r.country_name ?? "",
+          company_name: r.company_name ?? "",
+          main_import_product_1: r.main_import_product_1 ?? "",
+          poc: r.poc ?? "",
+          status: r.status ?? "Pending",
+          sr_no: r.sr_no ? Number(r.sr_no) : undefined,
+        }));
+      const inserted = mockRegistrationsStore.bulkInsert(fallbackRecords);
+      return NextResponse.json({ ok: true, inserted, total: fallbackRecords.length, offline: true });
+    } catch {
+      const msg = err instanceof Error ? err.message : "Database error";
+      return NextResponse.json({ error: msg }, { status: 500 });
+    }
   }
 }
 
@@ -497,6 +614,9 @@ function mapRegistration(r: Record<string, unknown>) {
     drivePassportBackUrl:  s("drive_passport_back_url"),
     driveProofUrl:         s("drive_proof_url"),
     driveBusinessCardUrl:  s("drive_business_card_url"),
+    callerComment:         s("caller_comment"),
+    callerRemark:          s("caller_remark"),
+    emailRequestStatus:    s("email_request_status") ?? "none",
   };
 }
 

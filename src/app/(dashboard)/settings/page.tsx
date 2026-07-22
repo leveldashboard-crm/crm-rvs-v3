@@ -1,6 +1,7 @@
 import SettingsPage from "@/components/settings/SettingsPage";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { normalizeRole, canViewSettings } from "@/lib/rbac";
 
 export const metadata = {
   title: "Settings — DelegateConnect",
@@ -9,9 +10,10 @@ export const metadata = {
 
 export default async function Page() {
   const session = await auth();
-  const role = (session?.user as { role?: string } | undefined)?.role ?? "user";
-  if (role !== "admin") {
+  const role = normalizeRole((session?.user as { role?: string } | undefined)?.role);
+  if (!canViewSettings(role)) {
     redirect("/");
   }
   return <SettingsPage />;
 }
+

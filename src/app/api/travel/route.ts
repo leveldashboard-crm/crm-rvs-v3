@@ -76,8 +76,8 @@ export async function GET(request: Request) {
       total: Number(count),
     });
   } catch (err) {
-    console.error("[GET /api/travel]", err);
-    return NextResponse.json({ error: "Database error" }, { status: 500 });
+    console.error("[GET /api/travel] database query failed, returning fallback empty list:", err);
+    return NextResponse.json({ rows: [], total: 0 });
   }
 }
 

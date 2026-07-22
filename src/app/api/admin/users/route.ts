@@ -4,15 +4,19 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword } from "@/lib/password";
+import { normalizeRole, canManageUsers, canManageAllUsers, isAtLeast } from "@/lib/rbac";
 
-// Helper – only admin role can call these routes
+// Helper – Regional Admin+ can manage users
 async function requireAdmin() {
   const session = await auth();
   if (!session) return { error: "Unauthorized", status: 401 };
-  if ((session.user as { role?: string })?.role !== "admin")
-    return { error: "Forbidden – admin role required", status: 403 };
-  return { session };
+  const role = normalizeRole((session.user as { role?: string })?.role);
+  if (!canManageUsers(role))
+    return { error: "Forbidden – Regional Admin+ required", status: 403 };
+  return { session, callerRole: role };
 }
+
+const VALID_ROLES = ["master_admin", "regional_admin", "team_lead", "caller", "qa_auditor", "analyst"];
 
 // ─── GET /api/admin/users — list all users ────────────────────────────────────
 export async function GET() {
@@ -20,7 +24,7 @@ export async function GET() {
   if ("error" in check) return NextResponse.json({ error: check.error }, { status: check.status });
 
   const allUsers = await db
-    .select({ id: users.id, email: users.email, name: users.name, role: users.role, createdAt: users.createdAt })
+    .select({ id: users.id, email: users.email, name: users.name, role: users.role, region: users.region, continent: users.continent, createdAt: users.createdAt })
     .from(users)
     .orderBy(users.createdAt);
 
@@ -33,24 +37,35 @@ export async function POST(request: Request) {
   if ("error" in check) return NextResponse.json({ error: check.error }, { status: check.status });
 
   try {
-    const { email, password, name, role } = await request.json() as {
-      email: string; password: string; name?: string; role?: string;
+    const { email, password, name, role, region, continent } = await request.json() as {
+      email: string; password: string; name?: string; role?: string; region?: string; continent?: string;
     };
 
     if (!email?.trim() || !password?.trim())
       return NextResponse.json({ error: "email and password are required" }, { status: 400 });
 
-    const validRoles = ["admin", "supervisor", "user"];
-    const assignedRole = validRoles.includes(role ?? "") ? role! : "user";
+    const assignedRole = VALID_ROLES.includes(role ?? "") ? role! : "caller";
+
+    // Only Master Admin can create/grant Master Admin role
+    if (assignedRole === "master_admin" && !canManageAllUsers(check.callerRole)) {
+      return NextResponse.json({ error: "Forbidden: Only Master Admin can grant Master Admin role" }, { status: 403 });
+    }
 
     const passwordHash = hashPassword(password);
 
     const [user] = await db
       .insert(users)
-      .values({ email: email.toLowerCase().trim(), passwordHash, name: name ?? email, role: assignedRole })
+      .values({
+        email: email.toLowerCase().trim(),
+        passwordHash,
+        name: name ?? email,
+        role: assignedRole,
+        region: region ?? null,
+        continent: continent ?? null,
+      })
       .onConflictDoUpdate({
         target: users.email,
-        set: { passwordHash, name: name ?? email, role: assignedRole, updatedAt: new Date() },
+        set: { passwordHash, name: name ?? email, role: assignedRole, region: region ?? null, continent: continent ?? null, updatedAt: new Date() },
       })
       .returning({ id: users.id, email: users.email, name: users.name, role: users.role });
 
@@ -67,16 +82,23 @@ export async function PUT(request: Request) {
   if ("error" in check) return NextResponse.json({ error: check.error }, { status: check.status });
 
   try {
-    const { id, role, name, password } = await request.json() as {
-      id: number; role?: string; name?: string; password?: string;
+    const { id, role, name, password, region, continent } = await request.json() as {
+      id: number; role?: string; name?: string; password?: string; region?: string; continent?: string;
     };
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
-    const validRoles = ["admin", "supervisor", "user"];
     const updates: Record<string, unknown> = { updatedAt: new Date() };
-    if (role && validRoles.includes(role)) updates.role = role;
+    if (role && VALID_ROLES.includes(role)) {
+      // Only Master Admin can grant/demote Master Admin role
+      if ((role === "master_admin" || updates.role === "master_admin") && !canManageAllUsers(check.callerRole)) {
+        return NextResponse.json({ error: "Forbidden: Only Master Admin can modify Master Admin role status" }, { status: 403 });
+      }
+      updates.role = role;
+    }
     if (name) updates.name = name;
     if (password) updates.passwordHash = hashPassword(password);
+    if (region !== undefined) updates.region = region;
+    if (continent !== undefined) updates.continent = continent;
 
     const [updated] = await db.update(users).set(updates).where(eq(users.id, id)).returning({
       id: users.id, email: users.email, name: users.name, role: users.role,
@@ -102,6 +124,13 @@ export async function DELETE(request: Request) {
   if (id === sessionUserId)
     return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 });
 
+  // Check target user to verify they aren't master admin unless caller is master admin
+  const [target] = await db.select({ role: users.role }).from(users).where(eq(users.id, id)).limit(1);
+  if (target && normalizeRole(target.role) === "master_admin" && !canManageAllUsers(check.callerRole)) {
+    return NextResponse.json({ error: "Forbidden: Only Master Admin can delete another Master Admin account" }, { status: 403 });
+  }
+
   await db.delete(users).where(eq(users.id, id));
   return NextResponse.json({ ok: true });
 }
+

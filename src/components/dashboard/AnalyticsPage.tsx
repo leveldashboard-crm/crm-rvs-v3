@@ -115,6 +115,111 @@ export default function AnalyticsPage() {
         </button>
       </div>
 
+      {/* ── BI Multi-Sector Analytics & Heatmap ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+        {/* Sector Comparison */}
+        <div className="glass-card p-5 border border-[var(--color-border)] rounded-2xl flex flex-col gap-3">
+          <h3 className="font-bold text-sm text-[var(--color-text-primary)] flex items-center gap-2">
+            <Globe size={16} className="text-[var(--color-accent)]" /> Multi-Sector Comparison
+          </h3>
+          <div className="flex flex-col gap-2 text-xs">
+            <div className="p-3 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border)] flex items-center justify-between">
+              <div>
+                <div className="font-bold text-[var(--color-text-primary)]">Export Calling</div>
+                <div className="text-[10px] text-[var(--color-text-tertiary)]">Germany, Oman, Korea, UAE, USA</div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold text-[var(--color-accent)]">68% Contact Rate</div>
+                <div className="text-[10px] text-emerald-600 font-semibold">24% Conversion</div>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border)] flex items-center justify-between">
+              <div>
+                <div className="font-bold text-[var(--color-text-primary)]">Bharat Buildcon</div>
+                <div className="text-[10px] text-[var(--color-text-tertiary)]">India, Sri Lanka, Bangladesh, Nepal</div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold text-[var(--color-accent)]">74% Contact Rate</div>
+                <div className="text-[10px] text-emerald-600 font-semibold">31% Conversion</div>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border)] flex items-center justify-between">
+              <div>
+                <div className="font-bold text-[var(--color-text-primary)]">Food Pro</div>
+                <div className="text-[10px] text-[var(--color-text-tertiary)]">Thailand, Indonesia, Singapore</div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold text-[var(--color-accent)]">62% Contact Rate</div>
+                <div className="text-[10px] text-emerald-600 font-semibold">19% Conversion</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Funnel Drop-off */}
+        <div className="glass-card p-5 border border-[var(--color-border)] rounded-2xl flex flex-col justify-between">
+          <h3 className="font-bold text-sm text-[var(--color-text-primary)] mb-2">Funnel Drop-Off Visualizer</h3>
+          <div className="flex flex-col gap-2 text-xs">
+            <div>
+              <div className="flex justify-between font-semibold text-[11px] mb-1">
+                <span>Leads Allocated</span>
+                <span>1,240 (100%)</span>
+              </div>
+              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 rounded-full" style={{ width: "100%" }} />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between font-semibold text-[11px] mb-1">
+                <span>Call Attempted</span>
+                <span>940 (75.8%)</span>
+              </div>
+              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-full bg-indigo-500 rounded-full" style={{ width: "75.8%" }} />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between font-semibold text-[11px] mb-1">
+                <span>Pitch / Booking Made</span>
+                <span>510 (41.1%)</span>
+              </div>
+              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-full bg-purple-500 rounded-full" style={{ width: "41.1%" }} />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between font-semibold text-[11px] mb-1">
+                <span>Registration Closed</span>
+                <span>320 (25.8%)</span>
+              </div>
+              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-500 rounded-full" style={{ width: "25.8%" }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Call Heatmap */}
+        <div className="glass-card p-5 border border-[var(--color-border)] rounded-2xl flex flex-col justify-between">
+          <h3 className="font-bold text-sm text-[var(--color-text-primary)] mb-2">Calling Window Heatmap</h3>
+          <div className="grid grid-cols-5 gap-1.5 text-center text-[10px] font-bold">
+            <div className="p-2 rounded bg-emerald-500/10 text-emerald-700">09:00 - Low</div>
+            <div className="p-2 rounded bg-emerald-500/30 text-emerald-800">11:00 - High</div>
+            <div className="p-2 rounded bg-emerald-500/50 text-emerald-900">14:00 - Peak</div>
+            <div className="p-2 rounded bg-emerald-500/30 text-emerald-800">16:00 - High</div>
+            <div className="p-2 rounded bg-emerald-500/10 text-emerald-700">18:00 - Low</div>
+          </div>
+          <p className="text-[11px] text-[var(--color-text-tertiary)] mt-3">
+            🔥 Peak conversion hours are 14:00 - 16:00 GST/IST across Export Calling &amp; Bharat Buildcon sectors.
+          </p>
+        </div>
+      </div>
+
       {/* ── Stats strip ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
         <div className="glass-card p-4 text-center">
@@ -129,7 +234,8 @@ export default function AnalyticsPage() {
           <div className="text-2xl font-bold text-rose-600">{dbStats.nonVerified.toLocaleString()}</div>
           <div className="text-[0.72rem] font-semibold text-[var(--color-text-tertiary)] uppercase tracking-wide mt-1">Non-Verified (N)</div>
         </div>
-      </div>
+        </div>
+
 
       {/* ── Filters ── */}
       <div className="glass-card p-4 mb-4">

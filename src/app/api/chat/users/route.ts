@@ -15,11 +15,18 @@ export async function GET() {
         name: users.name,
         email: users.email,
         role: users.role,
+        sector: users.sector,
       })
       .from(users)
       .orderBy(asc(users.name));
 
-    return NextResponse.json({ users: allUsers });
+    const currentEmail = session.user?.email;
+    const currentUser = currentEmail ? allUsers.find((u) => u.email === currentEmail) : null;
+
+    return NextResponse.json({
+      users: allUsers,
+      currentUserId: currentUser?.id ?? 1,
+    });
   } catch (err) {
     console.error("[GET /api/chat/users]", err);
     return NextResponse.json({ error: "Database error" }, { status: 500 });
