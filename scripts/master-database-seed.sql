@@ -181,10 +181,13 @@ CREATE TABLE IF NOT EXISTS task_phases (
 
 -- Ensure task_phases columns exist on existing databases
 ALTER TABLE task_phases ADD COLUMN IF NOT EXISTS batch_id INTEGER REFERENCES task_batches(id) ON DELETE CASCADE;
+ALTER TABLE task_phases ADD COLUMN IF NOT EXISTS task_id INTEGER;
+ALTER TABLE task_phases ALTER COLUMN task_id DROP NOT NULL;
 ALTER TABLE task_phases ADD COLUMN IF NOT EXISTS phase_number INTEGER DEFAULT 1;
 ALTER TABLE task_phases ADD COLUMN IF NOT EXISTS name TEXT;
 ALTER TABLE task_phases ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE task_phases ADD COLUMN IF NOT EXISTS is_completed BOOLEAN DEFAULT false;
+
 
 
 
@@ -496,17 +499,18 @@ ON CONFLICT (id) DO NOTHING;
 SELECT setval('task_batches_id_seq', COALESCE((SELECT MAX(id) FROM task_batches), 1));
 
 -- Seed Task Phases Checklist
-INSERT INTO task_phases (task_id, batch_id, phase_number, name, description, is_completed)
+INSERT INTO task_phases (batch_id, phase_number, name, description, is_completed)
 VALUES
-  (1, 1, 1, 'Initial Delegate Outreach', 'Contact delegates via ISD phone call & introduce event agenda', true),
-  (1, 1, 2, 'Travel & Passport Verification', 'Verify passport validity & travel itinerary details', true),
-  (1, 1, 3, 'Flight Booking Confirmation', 'Confirm flight ticket details and issue booking link', true),
-  (1, 1, 4, 'Hotel Accommodation & Voucher', 'Assign hotel room unit & dispatch hotel voucher', false),
-  (1, 1, 5, 'Final Badge & Invitation Dispatched', 'Send final QR invitation badge to delegate', false),
-  (2, 2, 1, 'Initial Delegate Outreach', 'Contact domestic delegates for attendance confirmation', true),
-  (2, 2, 2, 'Company & Product Verification', 'Verify main import product category 1 & 2', true),
-  (2, 2, 3, 'Hotel & Travel Desk Logistics', 'Check hotel requirement and local transport', false)
+  (1, 1, 'Initial Delegate Outreach', 'Contact delegates via ISD phone call & introduce event agenda', true),
+  (1, 2, 'Travel & Passport Verification', 'Verify passport validity & travel itinerary details', true),
+  (1, 3, 'Flight Booking Confirmation', 'Confirm flight ticket details and issue booking link', true),
+  (1, 4, 'Hotel Accommodation & Voucher', 'Assign hotel room unit & dispatch hotel voucher', false),
+  (1, 5, 'Final Badge & Invitation Dispatched', 'Send final QR invitation badge to delegate', false),
+  (2, 1, 'Initial Delegate Outreach', 'Contact domestic delegates for attendance confirmation', true),
+  (2, 2, 'Company & Product Verification', 'Verify main import product category 1 & 2', true),
+  (2, 3, 'Hotel & Travel Desk Logistics', 'Check hotel requirement and local transport', false)
 ON CONFLICT DO NOTHING;
+
 
 
 -- Seed Operational Roster
