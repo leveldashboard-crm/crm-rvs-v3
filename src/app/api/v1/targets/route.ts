@@ -20,6 +20,8 @@ export async function GET(request: Request) {
         userId: targets.userId,
         userName: targets.userName,
         sector: targets.sector,
+        targetType: targets.targetType,
+        taskCategory: targets.taskCategory,
         period: targets.period,
         goal: targets.goal,
         currentAttainment: targets.currentAttainment,
@@ -49,32 +51,40 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { userId, period, goal, sector, currentAttainment } = body as {
-      userId: number;
+    const { userId, period, goal, sector, currentAttainment, targetType, taskCategory } = body as {
+      userId?: number;
       period: "3m" | "6m" | "9m";
       goal: number;
       sector?: string;
       currentAttainment?: number;
+      targetType?: "individual" | "team";
+      taskCategory?: string;
     };
 
-    if (!userId || !period || goal == null) {
-      return NextResponse.json({ error: "userId, period, and goal are required" }, { status: 400 });
+    if (!period || goal == null) {
+      return NextResponse.json({ error: "period and goal are required" }, { status: 400 });
     }
 
-    const [userRecord] = await db
-      .select({ name: users.name })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
+    let userName = "Team Target";
+    if (userId) {
+      const [userRecord] = await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      userName = userRecord?.name ?? "Unknown";
+    }
 
     const createdById = session.user?.id ? parseInt(session.user.id) : null;
 
     const [inserted] = await db
       .insert(targets)
       .values({
-        userId,
-        userName: userRecord?.name ?? "Unknown",
+        userId: userId ?? null,
+        userName,
         sector: sector ?? null,
+        targetType: targetType ?? (userId ? "individual" : "team"),
+        taskCategory: taskCategory ?? "Overseas Calling",
         period,
         goal,
         currentAttainment: currentAttainment ?? 0,
@@ -83,6 +93,7 @@ export async function POST(request: Request) {
       .returning();
 
     return NextResponse.json({ ok: true, target: inserted });
+
   } catch (err: unknown) {
     console.error("[POST /api/v1/targets]", err);
     const msg = err instanceof Error ? err.message : "Database error";

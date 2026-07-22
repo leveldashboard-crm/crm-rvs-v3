@@ -1,10 +1,19 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { Calendar, Target, Plus, RefreshCw, UserCheck, Award, Flag, Globe } from "lucide-react";
+import { useState } from "react";
+import { Calendar, Target, Plus, RefreshCw, UserCheck, Globe, Users, Briefcase } from "lucide-react";
 import useSWR from "swr";
 import { canManageRoster, canManageAllUsers } from "@/lib/rbac";
 import type { V3Role } from "@/lib/rbac";
+
+export const TASK_CATEGORIES = [
+  "Overseas Calling",
+  "Document Verification",
+  "B2B Matchmaking",
+  "Travel & Visa Processing",
+  "VIP Concierge",
+  "QA Audit Follow-up",
+];
 
 interface RosterEntry {
   id: number;
@@ -13,13 +22,16 @@ interface RosterEntry {
   userName: string;
   sector: string;
   country: string;
+  taskCategory?: string;
 }
 
 interface TargetEntry {
   id: number;
-  userId: number;
+  userId?: number | null;
   userName: string;
-  sector: string;
+  sector?: string | null;
+  targetType: "individual" | "team";
+  taskCategory?: string;
   period: "3m" | "6m" | "9m";
   goal: number;
   currentAttainment: number;
@@ -37,6 +49,9 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 export default function RosterTargetPage({ role }: { role: V3Role }) {
   const [selectedWeek, setSelectedWeek] = useState("2026-W30");
   const [selectedSector, setSelectedSector] = useState("all");
+  const [targetScope, setTargetScope] = useState<"all" | "individual" | "team">("all");
+  const [targetPeriodFilter, setTargetPeriodFilter] = useState<"all" | "3m" | "6m" | "9m">("all");
+
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showTargetModal, setShowTargetModal] = useState(false);
 
@@ -44,11 +59,14 @@ export default function RosterTargetPage({ role }: { role: V3Role }) {
   const [assignUserId, setAssignUserId] = useState("");
   const [assignSector, setAssignSector] = useState("Bharat Buildcon");
   const [assignCountry, setAssignCountry] = useState("");
+  const [assignTaskCategory, setAssignTaskCategory] = useState("Overseas Calling");
 
+  const [targetScopeModal, setTargetScopeModal] = useState<"individual" | "team">("individual");
   const [targetUserId, setTargetUserId] = useState("");
   const [targetPeriod, setTargetPeriod] = useState<"3m" | "6m" | "9m">("3m");
   const [targetGoal, setTargetGoal] = useState("");
   const [targetSector, setTargetSector] = useState("Bharat Buildcon");
+  const [targetTaskCategory, setTargetTaskCategory] = useState("Overseas Calling");
 
   const canEditRoster = canManageRoster(role);
   const canEditTargets = canManageAllUsers(role);
@@ -73,9 +91,12 @@ export default function RosterTargetPage({ role }: { role: V3Role }) {
     ? rosterList
     : rosterList.filter((r) => r.sector.toLowerCase() === selectedSector.toLowerCase());
 
-  const filteredTargets = selectedSector === "all"
-    ? targetList
-    : targetList.filter((t) => !t.sector || t.sector.toLowerCase() === selectedSector.toLowerCase());
+  const filteredTargets = targetList.filter((t) => {
+    if (selectedSector !== "all" && t.sector && t.sector.toLowerCase() !== selectedSector.toLowerCase()) return false;
+    if (targetScope !== "all" && t.targetType !== targetScope) return false;
+    if (targetPeriodFilter !== "all" && t.period !== targetPeriodFilter) return false;
+    return true;
+  });
 
   const handleAssignRoster = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +110,7 @@ export default function RosterTargetPage({ role }: { role: V3Role }) {
         userId: parseInt(assignUserId),
         sector: assignSector,
         country: assignCountry,
+        taskCategory: assignTaskCategory,
       }),
     });
 
@@ -99,16 +121,19 @@ export default function RosterTargetPage({ role }: { role: V3Role }) {
 
   const handleSaveTarget = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!targetUserId || !targetGoal) return;
+    if (!targetGoal) return;
+    if (targetScopeModal === "individual" && !targetUserId) return;
 
     await fetch("/api/v1/targets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        userId: parseInt(targetUserId),
+        targetType: targetScopeModal,
+        userId: targetScopeModal === "individual" && targetUserId ? parseInt(targetUserId) : null,
         period: targetPeriod,
         goal: parseInt(targetGoal),
         sector: targetSector,
+        taskCategory: targetTaskCategory,
       }),
     });
 
@@ -126,10 +151,10 @@ export default function RosterTargetPage({ role }: { role: V3Role }) {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0071e3] to-[#5856d6] flex items-center justify-center text-white shadow-xs">
               <Calendar size={20} />
             </div>
-            <h1 className="text-3xl font-bold text-[var(--color-text-primary)] tracking-tight">Roster &amp; Long-Term Targets</h1>
+            <h1 className="text-3xl font-bold text-[var(--color-text-primary)] tracking-tight">Roster &amp; Long-Term Performance Targets</h1>
           </div>
           <p className="text-sm font-medium text-[var(--color-text-secondary)]">
-            Weekly caller schedules and 3-Month, 6-Month, 9-Month goal attainment tracker
+            Weekly caller schedules and 3-Month, 6-Month, 9-Month Individual &amp; Team Goal Attainment Tracker
           </p>
         </div>
 
@@ -150,7 +175,7 @@ export default function RosterTargetPage({ role }: { role: V3Role }) {
         </div>
       </div>
 
-      {/* ── Section 1: Weekly Roster ── */}
+      {/* ── Section 1: Weekly Roster Schedule ── */}
       <div className="glass-card p-6 border border-[var(--color-border)] rounded-2xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div className="flex items-center gap-2">
@@ -159,7 +184,7 @@ export default function RosterTargetPage({ role }: { role: V3Role }) {
           </div>
           {canEditRoster && (
             <button onClick={() => setShowAssignModal(true)} className="btn-primary text-xs py-1.5 px-3">
-              <Plus size={13} /> Assign Roster
+              <Plus size={13} /> Assign Work Task
             </button>
           )}
         </div>
@@ -178,6 +203,9 @@ export default function RosterTargetPage({ role }: { role: V3Role }) {
                   <div className="text-xs text-[var(--color-text-secondary)] font-medium flex items-center gap-1 mt-0.5">
                     <Globe size={11} /> {item.country} • <span className="text-[var(--color-accent)] font-semibold">{item.sector}</span>
                   </div>
+                  <div className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-purple-600 bg-purple-500/10 px-2 py-0.5 rounded-md w-fit">
+                    <Briefcase size={10} /> {item.taskCategory ?? "Overseas Calling"}
+                  </div>
                 </div>
                 <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
                   Assigned
@@ -188,39 +216,88 @@ export default function RosterTargetPage({ role }: { role: V3Role }) {
         )}
       </div>
 
-      {/* ── Section 2: Long-Term Targets ── */}
+      {/* ── Section 2: 3M / 6M / 9M Targets (Individual vs Team) ── */}
       <div className="glass-card p-6 border border-[var(--color-border)] rounded-2xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-2">
             <Target size={18} className="text-[#5856d6]" />
-            <h2 className="font-bold text-base text-[var(--color-text-primary)]">3-Month, 6-Month, 9-Month Targets</h2>
+            <h2 className="font-bold text-base text-[var(--color-text-primary)]">Performance Target Tracker (3M, 6M &amp; 9M)</h2>
           </div>
-          {canEditTargets && (
-            <button onClick={() => setShowTargetModal(true)} className="btn-primary text-xs py-1.5 px-3">
-              <Plus size={13} /> Set Target Goal
-            </button>
-          )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Target Scope Switcher */}
+            <div className="flex items-center bg-[var(--color-bg-primary)] p-1 rounded-lg border border-[var(--color-border)] text-xs font-semibold">
+              <button
+                onClick={() => setTargetScope("all")}
+                className={`px-3 py-1 rounded-md transition-all ${targetScope === "all" ? "bg-[var(--color-surface)] shadow-2xs font-bold text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)]"}`}
+              >
+                All Scope
+              </button>
+              <button
+                onClick={() => setTargetScope("individual")}
+                className={`px-3 py-1 rounded-md transition-all flex items-center gap-1 ${targetScope === "individual" ? "bg-[var(--color-surface)] shadow-2xs font-bold text-[var(--color-accent)]" : "text-[var(--color-text-secondary)]"}`}
+              >
+                <UserCheck size={12} /> Individual
+              </button>
+              <button
+                onClick={() => setTargetScope("team")}
+                className={`px-3 py-1 rounded-md transition-all flex items-center gap-1 ${targetScope === "team" ? "bg-[var(--color-surface)] shadow-2xs font-bold text-[#5856d6]" : "text-[var(--color-text-secondary)]"}`}
+              >
+                <Users size={12} /> Team Target
+              </button>
+            </div>
+
+            {/* Timeframe Filter Tabs */}
+            <div className="flex items-center bg-[var(--color-bg-primary)] p-1 rounded-lg border border-[var(--color-border)] text-xs font-semibold">
+              {(["all", "3m", "6m", "9m"] as const).map((period) => (
+                <button
+                  key={period}
+                  onClick={() => setTargetPeriodFilter(period)}
+                  className={`px-2.5 py-1 rounded-md transition-all uppercase ${targetPeriodFilter === period ? "bg-[var(--color-accent)] text-white font-bold" : "text-[var(--color-text-secondary)]"}`}
+                >
+                  {period === "all" ? "All Time" : period}
+                </button>
+              ))}
+            </div>
+
+            {canEditTargets && (
+              <button onClick={() => setShowTargetModal(true)} className="btn-primary text-xs py-1.5 px-3">
+                <Plus size={13} /> Set Target Goal
+              </button>
+            )}
+          </div>
         </div>
 
         {filteredTargets.length === 0 ? (
           <div className="py-12 text-center text-xs text-[var(--color-text-tertiary)] flex flex-col items-center gap-2 border border-dashed border-[var(--color-border)] rounded-xl">
             <Target size={28} className="opacity-30" />
-            No targets configured for the selected sector.
+            No targets match the selected filters (Scope: {targetScope}, Period: {targetPeriodFilter}).
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredTargets.map((t) => {
               const progress = t.goal > 0 ? Math.min(100, Math.round((t.currentAttainment / t.goal) * 100)) : 0;
+              const isTeam = t.targetType === "team";
               return (
                 <div key={t.id} className="p-4 rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border)] flex flex-col gap-3 shadow-2xs">
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-bold text-[var(--color-text-primary)] block">{t.userName}</span>
-                      <span className="text-[11px] text-[var(--color-text-secondary)] font-medium">{t.sector ?? "General"}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-[var(--color-text-primary)]">{t.userName}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${isTeam ? "bg-purple-500/10 text-purple-700 border border-purple-500/20" : "bg-blue-500/10 text-blue-700 border border-blue-500/20"}`}>
+                          {isTeam ? "TEAM" : "INDIVIDUAL"}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-[var(--color-text-secondary)] font-medium block mt-0.5">{t.sector ?? "General Sector"}</span>
                     </div>
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#5856d6]/10 text-[#5856d6] border border-[#5856d6]/20">
-                      {t.period.toUpperCase()} Goal
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#5856d6]/10 text-[#5856d6] border border-[#5856d6]/20 uppercase">
+                      {t.period} Goal
                     </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-purple-700 bg-purple-500/10 px-2.5 py-1 rounded-md font-semibold">
+                    <span className="flex items-center gap-1"><Briefcase size={11} /> Work Category</span>
+                    <span className="font-bold">{t.taskCategory ?? "Overseas Calling"}</span>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
@@ -246,7 +323,7 @@ export default function RosterTargetPage({ role }: { role: V3Role }) {
       {showAssignModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
           <div className="glass-card w-full max-w-md bg-[var(--color-surface)] p-6 rounded-2xl border border-[var(--color-border)]">
-            <h3 className="font-bold text-base mb-4">Assign Weekly Roster</h3>
+            <h3 className="font-bold text-base mb-4">Assign Roster Work Task</h3>
             <form onSubmit={handleAssignRoster} className="flex flex-col gap-3 text-xs">
               <div>
                 <label className="font-bold mb-1 block">Caller *</label>
@@ -254,6 +331,14 @@ export default function RosterTargetPage({ role }: { role: V3Role }) {
                   <option value="">Select caller…</option>
                   {usersList.map((u) => (
                     <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="font-bold mb-1 block">Task Category *</label>
+                <select value={assignTaskCategory} onChange={(e) => setAssignTaskCategory(e.target.value)} className="input w-full">
+                  {TASK_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
               </div>
@@ -282,25 +367,50 @@ export default function RosterTargetPage({ role }: { role: V3Role }) {
       {showTargetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
           <div className="glass-card w-full max-w-md bg-[var(--color-surface)] p-6 rounded-2xl border border-[var(--color-border)]">
-            <h3 className="font-bold text-base mb-4">Set Caller Target Goal</h3>
+            <h3 className="font-bold text-base mb-4">Set Target Goal</h3>
             <form onSubmit={handleSaveTarget} className="flex flex-col gap-3 text-xs">
               <div>
-                <label className="font-bold mb-1 block">Caller *</label>
-                <select value={targetUserId} onChange={(e) => setTargetUserId(e.target.value)} required className="input w-full">
-                  <option value="">Select caller…</option>
-                  {usersList.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
-                  ))}
+                <label className="font-bold mb-1 block">Target Scope *</label>
+                <select
+                  value={targetScopeModal}
+                  onChange={(e) => setTargetScopeModal(e.target.value as any)}
+                  className="input w-full font-bold"
+                >
+                  <option value="individual">👤 Individual Target</option>
+                  <option value="team">👥 Team Target</option>
                 </select>
               </div>
+
+              {targetScopeModal === "individual" && (
+                <div>
+                  <label className="font-bold mb-1 block">Caller *</label>
+                  <select value={targetUserId} onChange={(e) => setTargetUserId(e.target.value)} required className="input w-full">
+                    <option value="">Select caller…</option>
+                    {usersList.map((u) => (
+                      <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="font-bold mb-1 block">Period *</label>
                 <select value={targetPeriod} onChange={(e) => setTargetPeriod(e.target.value as any)} className="input w-full">
-                  <option value="3m">3-Month Target</option>
-                  <option value="6m">6-Month Target</option>
-                  <option value="9m">9-Month Target</option>
+                  <option value="3m">3-Month Target (3M)</option>
+                  <option value="6m">6-Month Target (6M)</option>
+                  <option value="9m">9-Month Target (9M)</option>
                 </select>
               </div>
+
+              <div>
+                <label className="font-bold mb-1 block">Work Task Category *</label>
+                <select value={targetTaskCategory} onChange={(e) => setTargetTaskCategory(e.target.value)} className="input w-full">
+                  {TASK_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="font-bold mb-1 block">Sector</label>
                 <select value={targetSector} onChange={(e) => setTargetSector(e.target.value)} className="input w-full">
@@ -309,13 +419,15 @@ export default function RosterTargetPage({ role }: { role: V3Role }) {
                   <option value="Food Pro">Food Pro</option>
                 </select>
               </div>
+
               <div>
-                <label className="font-bold mb-1 block">Goal (Leads / Calls) *</label>
-                <input type="number" min="1" placeholder="e.g. 50" value={targetGoal} onChange={(e) => setTargetGoal(e.target.value)} required className="input w-full" />
+                <label className="font-bold mb-1 block">Goal (Target Target Units / Leads) *</label>
+                <input type="number" min="1" placeholder="e.g. 100" value={targetGoal} onChange={(e) => setTargetGoal(e.target.value)} required className="input w-full" />
               </div>
+
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setShowTargetModal(false)} className="btn-secondary">Cancel</button>
-                <button type="submit" className="btn-primary">Set Target</button>
+                <button type="submit" className="btn-primary">Set Target Goal</button>
               </div>
             </form>
           </div>
@@ -324,3 +436,4 @@ export default function RosterTargetPage({ role }: { role: V3Role }) {
     </div>
   );
 }
+

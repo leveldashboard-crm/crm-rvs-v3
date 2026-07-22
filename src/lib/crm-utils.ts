@@ -38,6 +38,7 @@ export type RegistrationRow = {
   dollar_business: string | null;   // GAS: dollarBusiness alias
   vujis: string | null;             // GAS: vujis alias
   will_not_attend: string | null;   // dedicated column — blank = attend, any value = not attending
+  sector_type: string | null;       // government | private
   drive_passport_front_url: string | null;
   drive_passport_back_url: string | null;
   drive_proof_url: string | null;
@@ -46,6 +47,32 @@ export type RegistrationRow = {
   updated_at: string;
   [k: string]: unknown;
 };
+
+/**
+ * Detects if a registration belongs to Government Sector vs Private Sector
+ */
+export function detectSectorType(r: RegistrationRow): "government" | "private" {
+  if (r.sector_type === "government" || r.sector_type === "private") {
+    return r.sector_type;
+  }
+  const text = [
+    r.company_name,
+    r.designation,
+    r.nature_of_business,
+    r.main_import_product_1,
+    r.remarks,
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  const govtKeywords = [
+    "ministry", "govt", "government", "department", "dept", "national",
+    "authority", "municipal", "state", "public", "council", "embassy",
+    "consulate", "federation", "bureau", "board", "commission"
+  ];
+
+  const isGovt = govtKeywords.some(k => text.includes(k));
+  return isGovt ? "government" : "private";
+}
+
 
 
 export type TravelRow = {

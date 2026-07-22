@@ -370,6 +370,7 @@ export const roster = pgTable("roster", {
   userName: text("user_name"),
   sector: text("sector").notNull(),
   country: text("country").notNull(),
+  taskCategory: text("task_category").default("Overseas Calling"),
   createdById: integer("created_by_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -379,9 +380,11 @@ export const roster = pgTable("roster", {
 export const targets = pgTable("targets", {
   id: serial("id").primaryKey(),
   eventId: text("event_id").default("bharat_buildcon_2026"),
-  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
   userName: text("user_name"),
   sector: text("sector"),
+  targetType: text("target_type").default("individual").notNull(), // individual | team
+  taskCategory: text("task_category").default("Overseas Calling"), // work category
   period: text("period").notNull(),                  // 3m | 6m | 9m
   goal: integer("goal").default(0).notNull(),
   currentAttainment: integer("current_attainment").default(0).notNull(),
@@ -389,6 +392,7 @@ export const targets = pgTable("targets", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
 
 // ─── Email Logs ───────────────────────────────────────────────────────────────
 export const emailLogs = pgTable("email_logs", {
