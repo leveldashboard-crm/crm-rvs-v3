@@ -233,15 +233,18 @@ CREATE TABLE IF NOT EXISTS email_templates (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     subject TEXT NOT NULL,
-    body_html TEXT NOT NULL,
+    body TEXT,
+    body_html TEXT,
     placeholders JSONB,
     created_at TIMESTAMP DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP DEFAULT NOW() NOT NULL
 );
 
 -- Ensure email_templates columns exist on existing databases
+ALTER TABLE email_templates ADD COLUMN IF NOT EXISTS body TEXT;
 ALTER TABLE email_templates ADD COLUMN IF NOT EXISTS body_html TEXT;
 ALTER TABLE email_templates ADD COLUMN IF NOT EXISTS placeholders JSONB;
+
 
 
 -- Email Logs Table
