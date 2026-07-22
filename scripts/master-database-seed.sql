@@ -179,6 +179,15 @@ CREATE TABLE IF NOT EXISTS task_phases (
     created_at TIMESTAMP DEFAULT NOW() NOT NULL
 );
 
+-- Ensure task_phases columns exist on existing databases
+ALTER TABLE task_phases ADD COLUMN IF NOT EXISTS batch_id INTEGER REFERENCES task_batches(id) ON DELETE CASCADE;
+ALTER TABLE task_phases ADD COLUMN IF NOT EXISTS phase_number INTEGER DEFAULT 1;
+ALTER TABLE task_phases ADD COLUMN IF NOT EXISTS name TEXT;
+ALTER TABLE task_phases ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE task_phases ADD COLUMN IF NOT EXISTS is_completed BOOLEAN DEFAULT false;
+
+
+
 -- Operational Roster Table
 CREATE TABLE IF NOT EXISTS roster (
     id SERIAL PRIMARY KEY,
@@ -194,6 +203,14 @@ CREATE TABLE IF NOT EXISTS roster (
     created_at TIMESTAMP DEFAULT NOW() NOT NULL
 );
 
+-- Ensure roster columns exist on existing databases
+ALTER TABLE roster ADD COLUMN IF NOT EXISTS shift_start TIME;
+ALTER TABLE roster ADD COLUMN IF NOT EXISTS shift_end TIME;
+ALTER TABLE roster ADD COLUMN IF NOT EXISTS effective_date DATE;
+ALTER TABLE roster ADD COLUMN IF NOT EXISTS notes TEXT;
+
+
+
 -- Targets Management Table
 CREATE TABLE IF NOT EXISTS targets (
     id SERIAL PRIMARY KEY,
@@ -208,6 +225,15 @@ CREATE TABLE IF NOT EXISTS targets (
     notes TEXT,
     created_at TIMESTAMP DEFAULT NOW() NOT NULL
 );
+
+-- Ensure targets columns exist on existing databases
+ALTER TABLE targets ADD COLUMN IF NOT EXISTS period_type TEXT;
+ALTER TABLE targets ADD COLUMN IF NOT EXISTS calls_target INTEGER DEFAULT 0;
+ALTER TABLE targets ADD COLUMN IF NOT EXISTS conversions_target INTEGER DEFAULT 0;
+ALTER TABLE targets ADD COLUMN IF NOT EXISTS start_date DATE;
+ALTER TABLE targets ADD COLUMN IF NOT EXISTS end_date DATE;
+ALTER TABLE targets ADD COLUMN IF NOT EXISTS notes TEXT;
+
 
 -- QA Scores Table
 CREATE TABLE IF NOT EXISTS qa_scores (
@@ -260,6 +286,12 @@ CREATE TABLE IF NOT EXISTS email_logs (
     error_message TEXT,
     sent_at TIMESTAMP DEFAULT NOW() NOT NULL
 );
+
+-- Ensure email_logs columns exist on existing databases
+ALTER TABLE email_logs ADD COLUMN IF NOT EXISTS sender_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE email_logs ADD COLUMN IF NOT EXISTS recipient_name TEXT;
+ALTER TABLE email_logs ADD COLUMN IF NOT EXISTS template_name TEXT;
+
 
 -- Registrations Table
 CREATE TABLE IF NOT EXISTS registrations (
@@ -427,19 +459,122 @@ ON CONFLICT DO NOTHING;
 
 
 
--- Seed Sample Registrations Raw Demo Data
-INSERT INTO registrations (sr_no, first_name, last_name, country_name, company_name, participant_email, participant_mobile, status, main_import_product_1, poc)
+-- Seed Sample Registrations Raw Demo Data (20+ Records across domestic & export sectors)
+INSERT INTO registrations (sr_no, first_name, last_name, country_name, company_name, participant_email, participant_mobile, status, main_import_product_1, main_import_product_2, poc, designation, company_website, flight_hotel_code, remarks)
 VALUES
-  (1001, 'Tariq', 'Al-Mansoor', 'UAE', 'Gulf Heavy Structures LLC', 'tariq@gulfheavy.ae', '+971501234567', 'Confirmed', 'Structural Steel Columns', 'Caller Deepak'),
-  (1002, 'Rajesh', 'Sharma', 'India', 'Buildcon Infrastructure Ltd', 'r.sharma@buildconinfra.in', '+919876543210', 'In Progress', 'Cement & Ready Mix', 'Caller Koshti'),
-  (1003, 'Amina', 'Kassim', 'Kenya', 'Nairobi Urban Developers', 'amina@nairobiurban.co.ke', '+254712345678', 'Pending', 'Pre-cast Concrete Panels', 'Caller Koshti'),
-  (1004, 'Heinrich', 'Weber', 'Germany', 'Heidelberg Tech GMBH', 'h.weber@heidelbergtech.de', '+49301234567', 'Confirmed', 'Automated Crane Rigging', 'Caller Deepak')
+  (1001, 'Tariq', 'Al-Mansoor', 'UAE', 'Gulf Heavy Structures LLC', 'tariq@gulfheavy.ae', '+971501234567', 'Confirmed', 'Structural Steel Columns', 'Rebar Mesh', 'Caller Deepak', 'Managing Director', 'gulfheavy.ae', 'FH-902', 'High-priority buyer for Export Sector'),
+  (1002, 'Rajesh', 'Sharma', 'India', 'Buildcon Infrastructure Ltd', 'r.sharma@buildconinfra.in', '+919876543210', 'In Progress', 'Cement & Ready Mix', 'Pipelining', 'Caller Koshti', 'Procurement Head', 'buildconinfra.in', 'FH-104', 'Needs follow-up call on 24th July'),
+  (1003, 'Amina', 'Kassim', 'Kenya', 'Nairobi Urban Developers', 'amina@nairobiurban.co.ke', '+254712345678', 'Pending', 'Pre-cast Concrete Panels', 'Glass Facades', 'Caller Koshti', 'Operations Director', 'nairobiurban.co.ke', 'FH-301', 'Sent travel support letter'),
+  (1004, 'Heinrich', 'Weber', 'Germany', 'Heidelberg Tech GMBH', 'h.weber@heidelbergtech.de', '+49301234567', 'Confirmed', 'Automated Crane Rigging', 'Tower Cranes', 'Caller Deepak', 'VP International Business', 'heidelbergtech.de', 'FH-889', 'VIP Speaker & Exhibitor'),
+  (1005, 'Suresh', 'Patel', 'India', 'Gujarat Heavy Piping Corp', 'suresh@gujarathp.com', '+919825011223', 'Confirmed', 'HDPE Pipes', 'Valves & Fittings', 'Caller Koshti', 'Chief Purchasing Officer', 'gujarathp.com', 'FH-112', 'Flight booked for 26th Jan'),
+  (1006, 'Fatima', 'Al-Zahra', 'Saudi Arabia', 'Riyadh Contracting Co', 'f.alzahra@riyadhcon.sa', '+966501112233', 'In Progress', 'Scaffolding Systems', 'Formwork Systems', 'Caller Deepak', 'Global Sourcing Manager', 'riyadhcon.sa', 'FH-405', 'Requested hotel suite'),
+  (1007, 'Chen', 'Wei', 'China', 'Shanghai Excavator Works', 'chen.wei@shanghaiexc.cn', '+862168889999', 'Confirmed', 'Heavy Excavators', 'Hydraulic Pumps', 'Caller Deepak', 'Chief Trade Representative', 'shanghaiexc.cn', 'FH-701', 'Visa support document dispatched'),
+  (1008, 'Vikram', 'Mehta', 'India', 'Delhi Smart City Developers', 'v.mehta@delhismartcity.org', '+919811098765', 'Confirmed', 'Smart Lighting Cables', 'Solar Grid Materials', 'Caller Koshti', 'Project Director', 'delhismartcity.org', 'FH-202', 'Confirmed attendance for Day 1 & Day 2'),
+  (1009, 'Omar', 'Farooq', 'Qatar', 'Doha Sky Building Mat', 'omar@dohasky.qa', '+97444123456', 'Pending', 'Marble & Granite Slabs', 'Ceramic Tiles', 'Caller Deepak', 'General Manager', 'dohasky.qa', 'FH-509', 'Awaiting passport front copy'),
+  (1010, 'Karan', 'Singh', 'Nepal', 'Kathmandu Infra Group', 'karan@ktminfra.np', '+9779851012345', 'In Progress', 'Bridge Girders', 'Steel Cables', 'Caller Koshti', 'Executive Director', 'ktminfra.np', 'FH-610', 'Scheduled call with Team Lead')
 ON CONFLICT (sr_no) DO NOTHING;
+
+-- Seed Sample Travel Desk Records
+INSERT INTO travel_records (responses_sr_no, initial, first_name, last_name, country_name, country_code, participant_mobile, room_no, hotel_name, check_in_date, check_out_date, room_units, arrival_date, arrival_flight_no, arrival_to, arrival_time, departure_date, departure_flight_no, departure_from, departure_time, sector, company_name, poc, status, reimbursement, ticket_received, invoice_received, visa_received, voucher_received)
+VALUES
+  ('1001', 'Mr.', 'Tariq', 'Al-Mansoor', 'UAE', '+971', '+971501234567', '402', 'Taj Palace New Delhi', '2026-01-25', '2026-01-28', 1.0, '2026-01-25', 'EK-510', 'DEL', '14:30', '2026-01-28', 'EK-511', 'DEL', '18:15', 'Export Sector', 'Gulf Heavy Structures LLC', 'Caller Deepak', 'Confirmed', 'Eligible', 'TRUE', 'TRUE', 'TRUE', 'TRUE'),
+  ('1002', 'Mr.', 'Rajesh', 'Sharma', 'India', '+91', '+919876543210', '215', 'The Leela Ambience', '2026-01-26', '2026-01-28', 1.0, '2026-01-26', 'AI-802', 'DEL', '09:15', '2026-01-28', 'AI-803', 'DEL', '20:45', 'Bharat Buildcon', 'Buildcon Infrastructure Ltd', 'Caller Koshti', 'In Progress', 'N/A', 'TRUE', 'FALSE', 'N/A', 'FALSE'),
+  ('1004', 'Dr.', 'Heinrich', 'Weber', 'Germany', '+49', '+49301234567', '701', 'ITC Maurya New Delhi', '2026-01-24', '2026-01-29', 1.0, '2026-01-24', 'LH-760', 'DEL', '23:50', '2026-01-29', 'LH-761', 'DEL', '03:10', 'Export Sector', 'Heidelberg Tech GMBH', 'Caller Deepak', 'Confirmed', 'Eligible', 'TRUE', 'TRUE', 'TRUE', 'TRUE'),
+  ('1005', 'Mr.', 'Suresh', 'Patel', 'India', '+91', '+919825011223', '108', 'JW Marriott Aerocity', '2026-01-25', '2026-01-27', 1.0, '2026-01-25', '6E-451', 'DEL', '11:20', '2026-01-27', '6E-454', 'DEL', '16:40', 'Bharat Buildcon', 'Gujarat Heavy Piping Corp', 'Caller Koshti', 'Confirmed', 'N/A', 'TRUE', 'TRUE', 'N/A', 'TRUE')
+ON CONFLICT DO NOTHING;
+
+
+-- Seed Task Batches
+INSERT INTO task_batches (id, name, sector, assigned_to_name, country, continent, status, completion_percent, total_delegates, completed_delegates)
+VALUES
+  (1, 'Export Calling Batch #1 - Middle East', 'Export Sector', 'Caller Deepak', 'UAE', 'Asia', 'in_progress', 65.00, 20, 13),
+  (2, 'Domestic Buildcon Batch #4 - North India', 'Bharat Buildcon', 'Caller Koshti', 'India', 'Asia', 'in_progress', 40.00, 25, 10),
+  (3, 'Heavy Machinery Buyers - Europe & East Asia', 'Heavy Machinery & Equipment', 'Team Lead', 'Germany', 'Europe', 'completed', 100.00, 15, 15)
+ON CONFLICT (id) DO NOTHING;
+
+-- Reset sequence for task_batches
+SELECT setval('task_batches_id_seq', COALESCE((SELECT MAX(id) FROM task_batches), 1));
+
+-- Seed Task Phases Checklist
+INSERT INTO task_phases (task_id, batch_id, phase_number, name, description, is_completed)
+VALUES
+  (1, 1, 1, 'Initial Delegate Outreach', 'Contact delegates via ISD phone call & introduce event agenda', true),
+  (1, 1, 2, 'Travel & Passport Verification', 'Verify passport validity & travel itinerary details', true),
+  (1, 1, 3, 'Flight Booking Confirmation', 'Confirm flight ticket details and issue booking link', true),
+  (1, 1, 4, 'Hotel Accommodation & Voucher', 'Assign hotel room unit & dispatch hotel voucher', false),
+  (1, 1, 5, 'Final Badge & Invitation Dispatched', 'Send final QR invitation badge to delegate', false),
+  (2, 2, 1, 'Initial Delegate Outreach', 'Contact domestic delegates for attendance confirmation', true),
+  (2, 2, 2, 'Company & Product Verification', 'Verify main import product category 1 & 2', true),
+  (2, 2, 3, 'Hotel & Travel Desk Logistics', 'Check hotel requirement and local transport', false)
+ON CONFLICT DO NOTHING;
+
+
+-- Seed Operational Roster
+INSERT INTO roster (week, user_id, user_name, sector, country, shift_start, shift_end, effective_date, notes)
+VALUES
+  ('2026-W04', 4, 'Caller Koshti', 'Bharat Buildcon', 'India', '09:00:00', '18:00:00', '2026-01-20', 'Domestic Calling Window'),
+  ('2026-W04', 5, 'Caller Deepak', 'Export Sector', 'UAE', '10:00:00', '19:00:00', '2026-01-20', 'GCC & Overseas Calling Window'),
+  ('2026-W04', 3, 'Team Lead', 'Bharat Buildcon', 'India', '08:30:00', '17:30:00', '2026-01-20', 'Team Supervision & Escalations')
+ON CONFLICT DO NOTHING;
+
+
+-- Seed Targets Management
+INSERT INTO targets (period, period_type, user_id, user_name, calls_target, conversions_target, start_date, end_date, notes)
+VALUES
+  ('2026-Q1', '3m', 4, 'Caller Koshti', 300, 45, '2026-01-01', '2026-03-31', 'Q1 Domestic Conversion Goal'),
+  ('2026-Q1', '3m', 5, 'Caller Deepak', 350, 60, '2026-01-01', '2026-03-31', 'Q1 Export Conversion Goal'),
+  ('2026-H1', '6m', 3, 'Team Lead', 1000, 180, '2026-01-01', '2026-06-30', 'H1 Overall Team Goal')
+ON CONFLICT DO NOTHING;
+
+
+-- Seed QA Scores
+INSERT INTO qa_scores (call_log_id, auditor_id, auditor_name, caller_id, caller_name, script_adherence, tone, data_accuracy, customer_handling, overall_score, notes)
+VALUES
+  (101, 6, 'QA Auditor', 4, 'Caller Koshti', 4.50, 4.80, 4.20, 4.70, 4.55, 'Excellent call handling and polite tone.'),
+  (102, 6, 'QA Auditor', 5, 'Caller Deepak', 4.80, 4.90, 4.70, 4.80, 4.80, 'Outstanding international delegate engagement and fast resolution.'),
+  (103, 6, 'QA Auditor', 4, 'Caller Koshti', 4.00, 4.20, 3.90, 4.10, 4.05, 'Good adherence to script; remind delegate about hotel voucher.')
+ON CONFLICT DO NOTHING;
+
+-- Seed Team Chat & Group Messages
+INSERT INTO chat_messages (user_id, recipient_id, thread_type, thread_id, message, created_at)
+VALUES
+  (1, NULL, 'team', 'bharat_buildcon_2026', 'Welcome to Team Chat! Project X messaging is live.', NOW() - INTERVAL '2 hours'),
+  (3, NULL, 'team', 'bharat_buildcon_2026', 'Batch #1 Middle East is 65% completed. Great work @Caller Deepak!', NOW() - INTERVAL '1 hour'),
+  (5, NULL, 'group', '1', 'Export Sector calling is active. Gulf Heavy Structures LLC has confirmed attendance!', NOW() - INTERVAL '45 minutes'),
+  (4, 1, 'direct', NULL, 'Hi Admin, please verify hotel voucher allocation for Sr No 1002.', NOW() - INTERVAL '30 minutes'),
+  (1, 4, 'direct', NULL, 'Hotel voucher for Sr No 1002 has been verified and dispatched.', NOW() - INTERVAL '15 minutes')
+ON CONFLICT DO NOTHING;
+
+-- Seed Notifications
+INSERT INTO notifications (target_user_id, source_user_id, type, title, message, priority, read)
+VALUES
+  (4, 1, 'task_assigned', 'New Task Batch Assigned', 'You have been assigned Domestic Buildcon Batch #4 (25 delegates).', 'normal', false),
+  (5, 3, 'call_escalation', 'High-Priority Overseas Buyer', 'Tariq Al-Mansoor (UAE) requested callback regarding hotel suite reservation.', 'high', false),
+  (4, 6, 'qa_score', 'QA Audit Score Published', 'Your call audit score for Call #101 is 4.55/5.00.', 'normal', true)
+ON CONFLICT DO NOTHING;
+
+-- Seed Email Logs
+INSERT INTO email_logs (sender_id, recipient_email, recipient_name, template_name, subject, body, status)
+VALUES
+  (1, 'tariq@gulfheavy.ae', 'Tariq Al-Mansoor', 'invitation_letter', 'Bharat Buildcon 2026 — Official Invitation Letter', 'Dear Tariq Al-Mansoor, We invite Gulf Heavy Structures LLC to Bharat Buildcon 2026.', 'sent'),
+  (1, 'h.weber@heidelbergtech.de', 'Heinrich Weber', 'visa_support', 'Visa Support Document — Bharat Buildcon 2026', 'Dear Heinrich Weber, Attached is your visa support letter.', 'sent'),
+  (2, 'amina@nairobiurban.co.ke', 'Amina Kassim', 'invitation_letter', 'Bharat Buildcon 2026 — Official Invitation Letter', 'Dear Amina Kassim, We invite Nairobi Urban Developers to Bharat Buildcon 2026.', 'queued')
+ON CONFLICT DO NOTHING;
+
+
+-- Seed Operation Logs
+INSERT INTO operation_logs (user_id, user_name, user_role, action, entity_type, entity_id, status)
+VALUES
+  (1, 'Master Admin', 'admin', 'system_init', 'database', 1, 'success'),
+  (1, 'Master Admin', 'admin', 'batch_allocation', 'task_batch', 1, 'success'),
+  (5, 'Caller Deepak', 'caller', 'registration_update', 'registration', 1001, 'success'),
+  (6, 'QA Auditor', 'qa_auditor', 'qa_score_submitted', 'qa_score', 101, 'success')
+ON CONFLICT DO NOTHING;
 
 -- Seed Sample App Settings
 INSERT INTO app_settings (id, event_id, event_name, session_timeout_minutes, feature_flag_ai_scoring, notifications_enabled)
 VALUES (1, 'bharat_buildcon_2026', 'Bharat Buildcon 2026', 30, true, true)
 ON CONFLICT DO NOTHING;
 
-
 COMMIT;
+
