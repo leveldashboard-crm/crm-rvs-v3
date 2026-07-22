@@ -55,8 +55,10 @@ interface Props {
 }
 
 export default function AppShell({ session, children }: Props) {
+
   const pathname = usePathname();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [timeoutMinutes, setTimeoutMinutes] = useState(DEFAULT_TIMEOUT_MINUTES);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [gasConnected, setGasConnected] = useState<boolean | null>(null);
@@ -68,6 +70,24 @@ export default function AppShell({ session, children }: Props) {
 
   const userRole = normalizeRole((session.user as { role?: string })?.role);
   const roleMeta = getRoleMeta(userRole);
+
+  // Initialize sidebar collapsed state from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("crm_sidebar_collapsed");
+      if (saved === "true") setSidebarCollapsed(true);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed(prev => {
+      const next = !prev;
+      try { localStorage.setItem("crm_sidebar_collapsed", String(next)); } catch {}
+      return next;
+    });
+  };
 
   // ── Fetch settings ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -206,89 +226,119 @@ export default function AppShell({ session, children }: Props) {
         />
       )}
 
-
-
       {/* ── Sidebar ──────────────────────────────────────────────────────────── */}
       <aside
-        className={`sidebar fixed top-0 left-0 bottom-0 z-50 flex flex-col w-[252px] min-w-[252px] bg-[var(--color-bg-secondary)] border-r border-[var(--color-border)] shadow-2xl md:shadow-none transition-transform duration-300 ease-in-out ${
+        className={`sidebar fixed top-0 left-0 bottom-0 z-50 flex flex-col bg-[var(--color-bg-secondary)] border-r border-[var(--color-border)] shadow-2xl md:shadow-none transition-all duration-300 ease-in-out ${
+          sidebarCollapsed ? "w-[72px] min-w-[72px]" : "w-[252px] min-w-[252px]"
+        } ${
           mobileSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
         style={{ paddingTop: countdown !== null ? "44px" : "0" }}
       >
         {/* Logo & Mobile Close button */}
-        <div className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between">
+        <div className={`px-4 py-4 border-b border-[var(--color-border)] flex items-center ${sidebarCollapsed ? "justify-center flex-col gap-2" : "justify-between"}`}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-[0_3px_10px_rgba(0,113,227,0.35)] bg-gradient-to-br from-[#0071e3] to-[#5856d6]">
               <Globe size={18} color="white" />
             </div>
-            <div>
-              <div className="text-[0.95rem] font-bold text-[var(--color-text-primary)] leading-tight tracking-tight">
-                DelegateConnect
+            {!sidebarCollapsed && (
+              <div>
+                <div className="text-[0.95rem] font-bold text-[var(--color-text-primary)] leading-tight tracking-tight">
+                  DelegateConnect
+                </div>
+                <div className="text-[0.7rem] text-[var(--color-text-tertiary)] tracking-wide uppercase font-semibold mt-0.5">
+                  Enterprise CRM v3
+                </div>
               </div>
-              <div className="text-[0.7rem] text-[var(--color-text-tertiary)] tracking-wide uppercase font-semibold mt-0.5">
-                Enterprise CRM v3
-              </div>
-            </div>
+            )}
           </div>
 
-          <button
-            onClick={() => setMobileSidebarOpen(false)}
-            className="md:hidden p-1.5 rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)]"
-            title="Close menu"
-          >
-            <X size={18} />
-          </button>
-        </div>
+          <div className="flex items-center gap-1">
+            {/* Desktop Hamburger Toggle */}
+            <button
+              onClick={toggleSidebar}
+              className="hidden md:flex p-1.5 rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)] transition-colors cursor-pointer"
+              title={sidebarCollapsed ? "Expand sidebar" : "Retract sidebar"}
+            >
+              <Menu size={18} />
+            </button>
 
+            {/* Mobile Close Button */}
+            <button
+              onClick={() => setMobileSidebarOpen(false)}
+              className="md:hidden p-1.5 rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)]"
+              title="Close menu"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
 
         {/* Session info */}
-        <div className="px-5 py-2 border-b border-[var(--color-border)]/50 flex items-center gap-1.5 bg-[var(--color-bg-primary)]/50">
-          <Clock size={11} className="text-[var(--color-text-tertiary)] shrink-0" />
-          <span className="text-[0.65rem] text-[var(--color-text-tertiary)] font-medium">
-            Auto-logout: {timeoutMinutes}min inactivity
-          </span>
-        </div>
+        {!sidebarCollapsed && (
+          <div className="px-5 py-2 border-b border-[var(--color-border)]/50 flex items-center gap-1.5 bg-[var(--color-bg-primary)]/50">
+            <Clock size={11} className="text-[var(--color-text-tertiary)] shrink-0" />
+            <span className="text-[0.65rem] text-[var(--color-text-tertiary)] font-medium">
+              Auto-logout: {timeoutMinutes}min inactivity
+            </span>
+          </div>
+        )}
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 overflow-y-auto">
-          <p className="text-[0.65rem] font-bold tracking-widest uppercase text-[var(--color-text-tertiary)] px-3 pb-2">
-            Modules
-          </p>
+        <nav className="flex-1 px-2 py-4 overflow-y-auto custom-scrollbar">
+          {!sidebarCollapsed && (
+            <p className="text-[0.65rem] font-bold tracking-widest uppercase text-[var(--color-text-tertiary)] px-3 pb-2">
+              Modules
+            </p>
+          )}
           {visibleNavItems.map(({ href, icon, label, desc }) => {
             const isActive = pathname === href || (href !== "/" && pathname.startsWith(href));
             return (
               <Link
                 key={href}
                 href={href}
+                title={sidebarCollapsed ? label : undefined}
                 onClick={() => setMobileSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 transition-all duration-150 ease-in-out no-underline ${isActive ? "bg-[var(--color-accent-light)] text-[var(--color-accent)] font-semibold" : "text-[var(--color-text-secondary)] font-medium hover:bg-[var(--color-bg-primary)] hover:text-[var(--color-text-primary)]"}`}
+                className={`flex items-center rounded-xl mb-1 transition-all duration-150 ease-in-out no-underline ${
+                  sidebarCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"
+                } ${
+                  isActive
+                    ? "bg-[var(--color-accent-light)] text-[var(--color-accent)] font-semibold"
+                    : "text-[var(--color-text-secondary)] font-medium hover:bg-[var(--color-bg-primary)] hover:text-[var(--color-text-primary)]"
+                }`}
               >
                 <span className={`shrink-0 transition-opacity ${isActive ? "opacity-100" : "opacity-70"}`}>{icon}</span>
-                <div className="flex-1 min-w-0">
-                  <div className={`text-[0.8125rem] tracking-tight ${isActive ? "font-semibold" : "font-medium"}`}>{label}</div>
-                  <div className="text-[0.65rem] text-[var(--color-text-tertiary)] leading-tight mt-[2px]">{desc}</div>
-                </div>
-                {isActive && <ChevronRight size={14} className="shrink-0 opacity-50" />}
+                {!sidebarCollapsed && (
+                  <>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-[0.8125rem] tracking-tight ${isActive ? "font-semibold" : "font-medium"}`}>{label}</div>
+                      <div className="text-[0.65rem] text-[var(--color-text-tertiary)] leading-tight mt-[2px]">{desc}</div>
+                    </div>
+                    {isActive && <ChevronRight size={14} className="shrink-0 opacity-50" />}
+                  </>
+                )}
               </Link>
             );
           })}
         </nav>
 
         {/* Footer: user + break + sign out */}
-        <div className="p-4 border-t border-[var(--color-border)]">
+        <div className={`p-3 border-t border-[var(--color-border)] ${sidebarCollapsed ? "flex flex-col items-center gap-3" : ""}`}>
           {/* GAS Status dot */}
-          <div className="flex items-center gap-2 mb-3 px-1">
-            <span
-              className="w-2 h-2 rounded-full shrink-0"
-              style={{
-                background: gasConnected === null ? "#8e8e93" : gasConnected ? "#34c759" : "#ff9500",
-                boxShadow: gasConnected ? "0 0 6px #34c75988" : "none",
-              }}
-            />
-            <span className="text-[0.65rem] font-medium text-[var(--color-text-tertiary)]">
-              {gasConnected === null ? "Checking GAS…" : gasConnected ? "GAS: Connected" : "GAS: Not configured"}
-            </span>
-          </div>
+          {!sidebarCollapsed && (
+            <div className="flex items-center gap-2 mb-3 px-1">
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{
+                  background: gasConnected === null ? "#8e8e93" : gasConnected ? "#34c759" : "#ff9500",
+                  boxShadow: gasConnected ? "0 0 6px #34c75988" : "none",
+                }}
+              />
+              <span className="text-[0.65rem] font-medium text-[var(--color-text-tertiary)]">
+                {gasConnected === null ? "Checking GAS…" : gasConnected ? "GAS: Connected" : "GAS: Not configured"}
+              </span>
+            </div>
+          )}
 
           {/* Break toggle for callers */}
           {(userRole === "caller" || userRole === "team_lead") && (
@@ -298,9 +348,10 @@ export default function AppShell({ session, children }: Props) {
                 setPresenceStatus(next);
                 sendHeartbeat(next);
               }}
+              title={presenceStatus === "on_break" ? "Resume Work" : "Go on Break"}
               style={{
-                width: "100%", marginBottom: 10,
-                padding: "6px 10px", borderRadius: 8,
+                width: "100%", marginBottom: sidebarCollapsed ? 0 : 10,
+                padding: sidebarCollapsed ? "6px" : "6px 10px", borderRadius: 8,
                 border: `1px solid ${presenceStatus === "on_break" ? "#d97706" : "var(--color-border-strong)"}`,
                 background: presenceStatus === "on_break" ? "rgba(217,119,6,0.10)" : "transparent",
                 color: presenceStatus === "on_break" ? "#d97706" : "var(--color-text-secondary)",
@@ -310,38 +361,43 @@ export default function AppShell({ session, children }: Props) {
               }}
             >
               <Coffee size={13} />
-              {presenceStatus === "on_break" ? "Resume Work" : "Go on Break"}
+              {!sidebarCollapsed && (presenceStatus === "on_break" ? "Resume Work" : "Go on Break")}
             </button>
           )}
 
           {/* User row */}
-          <div className="flex items-center gap-3">
+          <div className={`flex items-center ${sidebarCollapsed ? "flex-col gap-2" : "gap-3"}`}>
             <div
               className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm"
               style={{ background: `linear-gradient(135deg, ${roleMeta.color}, #5856d6)` }}
+              title={session.user?.name ?? "User"}
             >
               {userInitials}
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[0.85rem] font-semibold text-[var(--color-text-primary)] truncate">
-                {session.user?.name ?? "User"}
+
+            {!sidebarCollapsed && (
+              <div className="flex-1 min-w-0">
+                <div className="text-[0.85rem] font-semibold text-[var(--color-text-primary)] truncate">
+                  {session.user?.name ?? "User"}
+                </div>
+                {/* Role badge */}
+                <div style={{
+                  display: "inline-flex", alignItems: "center",
+                  padding: "1px 7px", borderRadius: 20,
+                  background: roleMeta.bg, color: roleMeta.color,
+                  border: `1px solid ${roleMeta.borderColor}`,
+                  fontSize: "0.6rem", fontWeight: 700, marginTop: 2,
+                  letterSpacing: "0.02em",
+                }}>
+                  {roleMeta.shortLabel}
+                </div>
               </div>
-              {/* Role badge */}
-              <div style={{
-                display: "inline-flex", alignItems: "center",
-                padding: "1px 7px", borderRadius: 20,
-                background: roleMeta.bg, color: roleMeta.color,
-                border: `1px solid ${roleMeta.borderColor}`,
-                fontSize: "0.6rem", fontWeight: 700, marginTop: 2,
-                letterSpacing: "0.02em",
-              }}>
-                {roleMeta.shortLabel}
-              </div>
-            </div>
+            )}
+
             <button
               onClick={handleSignOut}
               title="Sign out"
-              className="p-1.5 rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-light)] transition-all flex items-center shrink-0"
+              className="p-1.5 rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-light)] transition-all flex items-center shrink-0 cursor-pointer"
             >
               <LogOut size={16} />
             </button>
@@ -350,7 +406,26 @@ export default function AppShell({ session, children }: Props) {
       </aside>
 
       {/* ── Main content ──────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 md:ml-[252px]" style={{ paddingTop: countdown !== null ? "44px" : "0" }}>
+      <div
+        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out ${
+          sidebarCollapsed ? "md:ml-[72px]" : "md:ml-[252px]"
+        }`}
+        style={{ paddingTop: countdown !== null ? "44px" : "0" }}
+      >
+        {/* Desktop topbar with Retract / Expand Hamburger Button */}
+        <div className="hidden md:flex items-center justify-between px-6 py-2.5 border-b border-[var(--color-border)]/40 bg-[var(--color-bg-secondary)]/30 backdrop-blur-md">
+          <button
+            onClick={toggleSidebar}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] text-xs font-semibold shadow-xs transition-all cursor-pointer"
+            title={sidebarCollapsed ? "Expand sidebar" : "Retract sidebar"}
+          >
+            <Menu size={15} className="text-[var(--color-accent)]" />
+            <span>{sidebarCollapsed ? "Expand Sidebar" : "Retract Sidebar"}</span>
+          </button>
+
+          <NotificationBell />
+        </div>
+
         {/* Mobile topbar */}
         <div className="mobile-topbar md:hidden px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] backdrop-blur-xl sticky top-0 z-[45] flex items-center justify-between shadow-xs">
           <button
@@ -364,11 +439,6 @@ export default function AppShell({ session, children }: Props) {
           <NotificationBell />
         </div>
 
-        {/* Desktop: notification bell in top-right of main content area */}
-        <div className="hidden md:flex justify-end px-6 pt-4 pb-0">
-          <NotificationBell />
-        </div>
-
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>
@@ -376,3 +446,4 @@ export default function AppShell({ session, children }: Props) {
     </div>
   );
 }
+
