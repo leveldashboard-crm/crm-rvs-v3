@@ -289,15 +289,18 @@ CREATE TABLE IF NOT EXISTS email_logs (
     recipient_name TEXT,
     template_name TEXT,
     subject TEXT NOT NULL,
+    body TEXT,
     status TEXT NOT NULL, -- sent | failed | queued
     error_message TEXT,
     sent_at TIMESTAMP DEFAULT NOW() NOT NULL
 );
 
 -- Ensure email_logs columns exist on existing databases
+ALTER TABLE email_logs ADD COLUMN IF NOT EXISTS body TEXT;
 ALTER TABLE email_logs ADD COLUMN IF NOT EXISTS sender_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE email_logs ADD COLUMN IF NOT EXISTS recipient_name TEXT;
 ALTER TABLE email_logs ADD COLUMN IF NOT EXISTS template_name TEXT;
+
 
 
 -- Registrations Table
