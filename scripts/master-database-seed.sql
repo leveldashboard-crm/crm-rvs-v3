@@ -521,32 +521,48 @@ VALUES
   (1046, 'Liam', 'O’Connor', 'Australia', 'Sydney Harbour Heavy Engineering', 'liam@sydneyheavy.au', '+61292000144', 'Confirmed', 'Piling Hammers', 'Tower Crane Jibs', 'Team Lead', 'Chief Operating Officer', 'sydneyheavy.au', 'FH-546', 'Keynote panel panelist'),
   (1047, 'Ethan', 'Tremblay', 'Canada', 'Toronto Heavy Mining Corp', 'ethan@torontomining.ca', '+14165550155', 'Confirmed', 'Underground Loaders', 'Ventilation Fans', 'Team Lead', 'VP Supply Chain', 'torontomining.ca', 'FH-647', 'Hotel booked at Taj'),
   (1048, 'Mateo', 'Hernandez', 'Mexico', 'Guadalajara Concrete SA', 'mateo@guadalajaraconcrete.mx', '+523338000166', 'In Progress', 'Transit Mixers', 'Batching Plants', 'Master Admin', 'Director of Operations', 'guadalajaraconcrete.mx', 'FH-748', 'Sent product specs'),
-  (1049, 'Dimitri', 'Rossi', 'Italy', 'Milan Heavy Steel SRL', 'dimitri@milansteel.it', '+390280000177', 'Confirmed', 'Stainless Steel Plates', 'Seamless Pipes', 'Team Lead', 'Export Sales Manager', 'milansteel.it', 'FH-849', 'VIP Lounge pass issued'),
-  (1050, 'Pierre', 'Dubois', 'France', 'Paris Infrastructure SAS', 'pierre@parisinfa.fr', '+33140000188', 'Confirmed', 'Tunnel Lining Segments', 'Geotextile Membranes', 'Team Lead', 'Procurement VP', 'parisinfra.fr', 'FH-950', 'Flight EK-073 confirmed')
-ON CONFLICT (sr_no) DO NOTHING;
-
--- Seed Sample Travel Desk Records
+  (1049, 'Dimitri', 'Rossi', 'Italy', 'Milan Heavy Steel SRL', 'dimitri@milansteel.it', '+390280000177', 'Confirmed', 'Stainless Steel Plates', 'Seamless Pipes', 'Team Lead', 'Export Sales Manager', -- Seed Sample Travel Desk Records (Comprehensive list covering Taj Palace, The Leela, ITC Maurya, JW Marriott)
 INSERT INTO travel_records (responses_sr_no, initial, first_name, last_name, country_name, country_code, participant_mobile, room_no, hotel_name, check_in_date, check_out_date, room_units, arrival_date, arrival_flight_no, arrival_to, arrival_time, departure_date, departure_flight_no, departure_from, departure_time, sector, company_name, poc, status, reimbursement, ticket_received, invoice_received, visa_received, voucher_received)
 VALUES
   ('1001', 'Mr.', 'Tariq', 'Al-Mansoor', 'UAE', '+971', '+971501234567', '402', 'Taj Palace New Delhi', '2026-01-25', '2026-01-28', 1.0, '2026-01-25', 'EK-510', 'DEL', '14:30', '2026-01-28', 'EK-511', 'DEL', '18:15', 'Export Sector', 'Gulf Heavy Structures LLC', 'Caller Deepak', 'Confirmed', 'Eligible', 'TRUE', 'TRUE', 'TRUE', 'TRUE'),
   ('1002', 'Mr.', 'Rajesh', 'Sharma', 'India', '+91', '+919876543210', '215', 'The Leela Ambience', '2026-01-26', '2026-01-28', 1.0, '2026-01-26', 'AI-802', 'DEL', '09:15', '2026-01-28', 'AI-803', 'DEL', '20:45', 'Bharat Buildcon', 'Buildcon Infrastructure Ltd', 'Caller Koshti', 'In Progress', 'N/A', 'TRUE', 'FALSE', 'N/A', 'FALSE'),
   ('1004', 'Dr.', 'Heinrich', 'Weber', 'Germany', '+49', '+49301234567', '701', 'ITC Maurya New Delhi', '2026-01-24', '2026-01-29', 1.0, '2026-01-24', 'LH-760', 'DEL', '23:50', '2026-01-29', 'LH-761', 'DEL', '03:10', 'Export Sector', 'Heidelberg Tech GMBH', 'Caller Deepak', 'Confirmed', 'Eligible', 'TRUE', 'TRUE', 'TRUE', 'TRUE'),
-  ('1005', 'Mr.', 'Suresh', 'Patel', 'India', '+91', '+919825011223', '108', 'JW Marriott Aerocity', '2026-01-25', '2026-01-27', 1.0, '2026-01-25', '6E-451', 'DEL', '11:20', '2026-01-27', '6E-454', 'DEL', '16:40', 'Bharat Buildcon', 'Gujarat Heavy Piping Corp', 'Caller Koshti', 'Confirmed', 'N/A', 'TRUE', 'TRUE', 'N/A', 'TRUE')
+  ('1005', 'Mr.', 'Suresh', 'Patel', 'India', '+91', '+919825011223', '108', 'JW Marriott Aerocity', '2026-01-25', '2026-01-27', 1.0, '2026-01-25', '6E-451', 'DEL', '11:20', '2026-01-27', '6E-454', 'DEL', '16:40', 'Bharat Buildcon', 'Gujarat Heavy Piping Corp', 'Caller Koshti', 'Confirmed', 'N/A', 'TRUE', 'TRUE', 'N/A', 'TRUE'),
+  ('1006', 'Mrs.', 'Fatima', 'Al-Zahra', 'Saudi Arabia', '+966', '+966501112233', '304', 'Taj Palace New Delhi', '2026-01-24', '2026-01-28', 1.0, '2026-01-24', 'SV-760', 'DEL', '18:40', '2026-01-28', 'SV-761', 'DEL', '22:10', 'Export Sector', 'Riyadh Contracting Co', 'Caller Deepak', 'Confirmed', 'Eligible', 'TRUE', 'TRUE', 'TRUE', 'TRUE'),
+  ('1007', 'Mr.', 'Chen', 'Wei', 'China', '+86', '+862168889999', '512', 'The Leela Ambience', '2026-01-25', '2026-01-29', 1.0, '2026-01-25', 'CA-947', 'DEL', '21:30', '2026-01-29', 'CA-948', 'DEL', '02:40', 'Export Sector', 'Shanghai Excavator Works', 'Caller Deepak', 'Confirmed', 'Eligible', 'TRUE', 'TRUE', 'TRUE', 'TRUE'),
+  ('1008', 'Mr.', 'Vikram', 'Mehta', 'India', '+91', '+919811098765', '114', 'JW Marriott Aerocity', '2026-01-26', '2026-01-28', 1.0, '2026-01-26', '6E-201', 'DEL', '08:00', '2026-01-28', '6E-202', 'DEL', '19:30', 'Bharat Buildcon', 'Delhi Smart City Developers', 'Caller Koshti', 'Confirmed', 'N/A', 'TRUE', 'TRUE', 'N/A', 'TRUE'),
+  ('1011', 'Mr.', 'Kenji', 'Takahashi', 'Japan', '+81', '+81335550199', '802', 'Taj Palace New Delhi', '2026-01-24', '2026-01-29', 1.0, '2026-01-24', 'JL-039', 'DEL', '17:15', '2026-01-29', 'JL-040', 'DEL', '20:30', 'Heavy Machinery & Equipment', 'Tokyo Heavy Machinery Corp', 'Team Lead', 'Confirmed', 'Eligible', 'TRUE', 'TRUE', 'TRUE', 'TRUE'),
+  ('1012', 'Mr.', 'Robert', 'Miller', 'USA', '+1', '+12125550144', '601', 'ITC Maurya New Delhi', '2026-01-23', '2026-01-28', 1.0, '2026-01-23', 'UA-082', 'DEL', '22:15', '2026-01-28', 'UA-083', 'DEL', '23:55', 'Heavy Machinery & Equipment', 'American Infrastructure Co', 'Team Lead', 'Confirmed', 'Eligible', 'TRUE', 'TRUE', 'TRUE', 'TRUE'),
+  ('1015', 'Mr.', 'Tenzin', 'Norbu', 'Bhutan', '+975', '+97517123456', '205', 'The Leela Ambience', '2026-01-25', '2026-01-28', 1.0, '2026-01-25', 'KB-202', 'DEL', '12:05', '2026-01-28', 'KB-203', 'DEL', '15:20', 'Bharat Buildcon', 'Thimphu Eco Infra Corp', 'Caller Koshti', 'Confirmed', 'N/A', 'TRUE', 'TRUE', 'N/A', 'TRUE'),
+  ('1017', 'Mr.', 'Rahim', 'Uddin', 'Bangladesh', '+880', '+8801711223344', '208', 'The Leela Ambience', '2026-01-25', '2026-01-28', 1.0, '2026-01-25', 'BG-097', 'DEL', '11:45', '2026-01-28', 'BG-098', 'DEL', '14:20', 'Bharat Buildcon', 'Dhaka Skyline Builders', 'Caller Koshti', 'Confirmed', 'N/A', 'TRUE', 'TRUE', 'N/A', 'TRUE'),
+  ('1020', 'Mr.', 'Ahmad', 'Zaki', 'Malaysia', '+60', '+60321112222', '310', 'JW Marriott Aerocity', '2026-01-25', '2026-01-28', 1.0, '2026-01-25', 'MH-190', 'DEL', '19:40', '2026-01-28', 'MH-191', 'DEL', '23:05', 'Bharat Buildcon', 'KL Structural Steel', 'Caller Koshti', 'Confirmed', 'N/A', 'TRUE', 'TRUE', 'N/A', 'TRUE'),
+  ('1021', 'Mr.', 'David', 'Lim', 'Singapore', '+65', '+6567890123', '312', 'JW Marriott Aerocity', '2026-01-25', '2026-01-28', 1.0, '2026-01-25', 'SQ-406', 'DEL', '20:10', '2026-01-28', 'SQ-407', 'DEL', '23:45', 'Bharat Buildcon', 'Singa Urban Solutions', 'Caller Koshti', 'Confirmed', 'N/A', 'TRUE', 'TRUE', 'N/A', 'TRUE'),
+  ('1023', 'Mr.', 'Fahad', 'Al-Sabah', 'Kuwait', '+965', '+96522334455', '901', 'Taj Palace New Delhi', '2026-01-24', '2026-01-28', 1.0, '2026-01-24', 'KU-301', 'DEL', '15:20', '2026-01-28', 'KU-302', 'DEL', '19:40', 'Export Sector', 'Kuwait National Buildcon', 'Caller Deepak', 'Confirmed', 'Eligible', 'TRUE', 'TRUE', 'TRUE', 'TRUE'),
+  ('1025', 'Mr.', 'Nelson', 'Mandela Jr', 'South Africa', '+27', '+27214001234', '702', 'ITC Maurya New Delhi', '2026-01-24', '2026-01-29', 1.0, '2026-01-24', 'SA-222', 'DEL', '22:30', '2026-01-29', 'SA-223', 'DEL', '01:50', 'Export Sector', 'Cape Infrastructure Trust', 'Caller Deepak', 'Confirmed', 'Eligible', 'TRUE', 'TRUE', 'TRUE', 'TRUE'),
+  ('1027', 'Mr.', 'Kwame', 'Mensah', 'Ghana', '+233', '+233302123456', '704', 'ITC Maurya New Delhi', '2026-01-25', '2026-01-28', 1.0, '2026-01-25', 'ET-901', 'DEL', '06:10', '2026-01-28', 'ET-902', 'DEL', '10:30', 'Export Sector', 'Accra Metro Development', 'Caller Deepak', 'Confirmed', 'Eligible', 'TRUE', 'TRUE', 'TRUE', 'TRUE'),
+  ('1030', 'Mr.', 'Gonzalo', 'Rojas', 'Chile', '+56', '+56229400100', '602', 'ITC Maurya New Delhi', '2026-01-23', '2026-01-29', 1.0, '2026-01-23', 'LA-801', 'DEL', '23:45', '2026-01-29', 'LA-802', 'DEL', '03:10', 'Bharat Buildcon', 'Santiago Mining Construction', 'Master Admin', 'Confirmed', 'Eligible', 'TRUE', 'TRUE', 'TRUE', 'TRUE'),
+  ('1033', 'Mr.', 'Jan', 'De Jong', 'Netherlands', '+31', '+31205550011', '803', 'Taj Palace New Delhi', '2026-01-24', '2026-01-28', 1.0, '2026-01-24', 'KL-871', 'DEL', '13:05', '2026-01-28', 'KL-872', 'DEL', '17:40', 'Heavy Machinery & Equipment', 'Amsterdam Port Heavy Tech', 'Team Lead', 'Confirmed', 'Eligible', 'TRUE', 'TRUE', 'TRUE', 'TRUE'),
+  ('1034', 'Mr.', 'Luc', 'Peeters', 'Belgium', '+32', '+3225110022', '804', 'Taj Palace New Delhi', '2026-01-25', '2026-01-28', 1.0, '2026-01-25', 'SN-255', 'DEL', '14:20', '2026-01-28', 'SN-256', 'DEL', '18:10', 'Heavy Machinery & Equipment', 'Brussels Eco Concrete', 'Team Lead', 'Confirmed', 'Eligible', 'TRUE', 'TRUE', 'TRUE', 'TRUE'),
+  ('1036', 'Mr.', 'Marc', 'Schneider', 'Switzerland', '+41', '+41442110044', '805', 'Taj Palace New Delhi', '2026-01-24', '2026-01-28', 1.0, '2026-01-24', 'LX-146', 'DEL', '16:05', '2026-01-28', 'LX-147', 'DEL', '20:15', 'Heavy Machinery & Equipment', 'Zurich Precision Tools GMBH', 'Team Lead', 'Confirmed', 'Eligible', 'TRUE', 'TRUE', 'TRUE', 'TRUE')
 ON CONFLICT DO NOTHING;
 
-
--- Seed Task Batches
+-- Seed Task Batches (Diverse list showing full workflow coverage)
 INSERT INTO task_batches (id, name, sector, assigned_to_name, country, continent, status, completion_percent, total_delegates, completed_delegates)
 VALUES
   (1, 'Export Calling Batch #1 - Middle East', 'Export Sector', 'Caller Deepak', 'UAE', 'Asia', 'in_progress', 65.00, 20, 13),
   (2, 'Domestic Buildcon Batch #4 - North India', 'Bharat Buildcon', 'Caller Koshti', 'India', 'Asia', 'in_progress', 40.00, 25, 10),
-  (3, 'Heavy Machinery Buyers - Europe & East Asia', 'Heavy Machinery & Equipment', 'Team Lead', 'Germany', 'Europe', 'completed', 100.00, 15, 15)
+  (3, 'Heavy Machinery Buyers - Europe & East Asia', 'Heavy Machinery & Equipment', 'Team Lead', 'Germany', 'Europe', 'completed', 100.00, 15, 15),
+  (4, 'Export Calling Batch #2 - East Africa', 'Export Sector', 'Caller Deepak', 'Kenya', 'Africa', 'in_progress', 20.00, 10, 2),
+  (5, 'Domestic Buildcon Batch #5 - South India', 'Bharat Buildcon', 'Caller Koshti', 'India', 'Asia', 'pending', 0.00, 15, 0),
+  (6, 'Heavy Machinery Buyers - Americas', 'Heavy Machinery & Equipment', 'Team Lead', 'USA', 'North America', 'in_progress', 50.00, 12, 6),
+  (7, 'Export Calling Batch #3 - West Africa', 'Export Sector', 'Caller Deepak', 'Nigeria', 'Africa', 'pending', 0.00, 8, 0),
+  (8, 'Domestic Buildcon Batch #6 - East India', 'Bharat Buildcon', 'Caller Koshti', 'India', 'Asia', 'completed', 100.00, 10, 10)
 ON CONFLICT (id) DO NOTHING;
 
 -- Reset sequence for task_batches
 SELECT setval('task_batches_id_seq', COALESCE((SELECT MAX(id) FROM task_batches), 1));
 
--- Seed Task Phases Checklist
+-- Seed Task Phases Checklist (Phase tracking for all batches)
 INSERT INTO task_phases (batch_id, phase_number, name, description, is_completed)
 VALUES
   (1, 1, 'Initial Delegate Outreach', 'Contact delegates via ISD phone call & introduce event agenda', true),
@@ -554,73 +570,112 @@ VALUES
   (1, 3, 'Flight Booking Confirmation', 'Confirm flight ticket details and issue booking link', true),
   (1, 4, 'Hotel Accommodation & Voucher', 'Assign hotel room unit & dispatch hotel voucher', false),
   (1, 5, 'Final Badge & Invitation Dispatched', 'Send final QR invitation badge to delegate', false),
+  
   (2, 1, 'Initial Delegate Outreach', 'Contact domestic delegates for attendance confirmation', true),
   (2, 2, 'Company & Product Verification', 'Verify main import product category 1 & 2', true),
-  (2, 3, 'Hotel & Travel Desk Logistics', 'Check hotel requirement and local transport', false)
+  (2, 3, 'Hotel & Travel Desk Logistics', 'Check hotel requirement and local transport', false),
+  (2, 4, 'Attendance Confirmation Dispatch', 'Dispatch confirmed attendance badge and voucher', false),
+  
+  (4, 1, 'Initial Delegate Outreach', 'Initiate calls to East African delegates', true),
+  (4, 2, 'Passport Verification', 'Request passport copy upload from dashboard link', false),
+  (4, 3, 'Flight Booking Desk', 'Facilitate booking process for confirmed attendees', false),
+  
+  (6, 1, 'Initial Delegate Outreach', 'Outreach to US/Canada buyers', true),
+  (6, 2, 'B2B Meeting Setup', 'Set up business matchmaking meetings', true),
+  (6, 3, 'Flight Desk Approvals', 'Approve flight reimbursement invoices', false),
+  (6, 4, 'Hotel Room Assignment', 'Confirm luxury rooms at Maurya & Taj', false)
 ON CONFLICT DO NOTHING;
 
-
-
--- Seed Operational Roster
+-- Seed Operational Roster (Complete calendar coverage)
 INSERT INTO roster (week, user_id, user_name, sector, country, shift_start, shift_end, effective_date, notes)
 VALUES
-  ('2026-W04', 4, 'Caller Koshti', 'Bharat Buildcon', 'India', '09:00:00', '18:00:00', '2026-01-20', 'Domestic Calling Window'),
+  ('2026-W04', 4, 'Caller Koshti', 'Bharat Buildcon', 'India', '09:00:00', '18:00:00', '2026-01-20', 'Domestic Morning Shift'),
   ('2026-W04', 5, 'Caller Deepak', 'Export Sector', 'UAE', '10:00:00', '19:00:00', '2026-01-20', 'GCC & Overseas Calling Window'),
-  ('2026-W04', 3, 'Team Lead', 'Bharat Buildcon', 'India', '08:30:00', '17:30:00', '2026-01-20', 'Team Supervision & Escalations')
+  ('2026-W04', 3, 'Team Lead', 'Bharat Buildcon', 'India', '08:30:00', '17:30:00', '2026-01-20', 'Team Supervision & Escalations'),
+  ('2026-W04', 6, 'QA Auditor', 'Bharat Buildcon', 'India', '09:00:00', '18:00:00', '2026-01-20', 'Quality Audits & Scoring Logs'),
+  ('2026-W05', 4, 'Caller Koshti', 'Bharat Buildcon', 'India', '09:00:00', '18:00:00', '2026-01-27', 'Domestic General Shift'),
+  ('2026-W05', 5, 'Caller Deepak', 'Export Sector', 'UAE', '10:00:00', '19:00:00', '2026-01-27', 'Export Desk General Shift'),
+  ('2026-W05', 3, 'Team Lead', 'Bharat Buildcon', 'India', '08:30:00', '17:30:00', '2026-01-27', 'North India Roster Sync')
 ON CONFLICT DO NOTHING;
 
-
--- Seed Targets Management
+-- Seed Targets Management (Calls and Conversions targets)
 INSERT INTO targets (period, period_type, user_id, user_name, calls_target, conversions_target, start_date, end_date, notes)
 VALUES
   ('2026-Q1', '3m', 4, 'Caller Koshti', 300, 45, '2026-01-01', '2026-03-31', 'Q1 Domestic Conversion Goal'),
   ('2026-Q1', '3m', 5, 'Caller Deepak', 350, 60, '2026-01-01', '2026-03-31', 'Q1 Export Conversion Goal'),
-  ('2026-H1', '6m', 3, 'Team Lead', 1000, 180, '2026-01-01', '2026-06-30', 'H1 Overall Team Goal')
+  ('2026-H1', '6m', 3, 'Team Lead', 1000, 180, '2026-01-01', '2026-06-30', 'H1 Overall Team Goal'),
+  ('2026-Q2', '3m', 4, 'Caller Koshti', 400, 65, '2026-04-01', '2026-06-30', 'Q2 Target Scaling'),
+  ('2026-Q2', '3m', 5, 'Caller Deepak', 450, 80, '2026-04-01', '2026-06-30', 'Q2 Overseas Sourcing Target')
 ON CONFLICT DO NOTHING;
 
-
--- Seed QA Scores
+-- Seed QA Scores (Highly filled list of quality reports)
 INSERT INTO qa_scores (call_log_id, auditor_id, auditor_name, caller_id, caller_name, script_adherence, tone, data_accuracy, customer_handling, overall_score, notes)
 VALUES
   (101, 6, 'QA Auditor', 4, 'Caller Koshti', 4.50, 4.80, 4.20, 4.70, 4.55, 'Excellent call handling and polite tone.'),
   (102, 6, 'QA Auditor', 5, 'Caller Deepak', 4.80, 4.90, 4.70, 4.80, 4.80, 'Outstanding international delegate engagement and fast resolution.'),
-  (103, 6, 'QA Auditor', 4, 'Caller Koshti', 4.00, 4.20, 3.90, 4.10, 4.05, 'Good adherence to script; remind delegate about hotel voucher.')
+  (103, 6, 'QA Auditor', 4, 'Caller Koshti', 4.00, 4.20, 3.90, 4.10, 4.05, 'Good adherence to script; remind delegate about hotel voucher.'),
+  (104, 6, 'QA Auditor', 5, 'Caller Deepak', 4.90, 4.80, 4.90, 4.90, 4.88, 'Strong performance. Verified all import product categories correctly.'),
+  (105, 6, 'QA Auditor', 4, 'Caller Koshti', 3.80, 4.00, 3.50, 3.80, 3.78, 'Needs to slow down pitch. Missed asking company website details.'),
+  (106, 6, 'QA Auditor', 5, 'Caller Deepak', 4.70, 4.60, 4.80, 4.70, 4.70, 'Polite behavior. Smooth handling of flight reservation queries.')
 ON CONFLICT DO NOTHING;
 
--- Seed Team Chat & Group Messages
+-- Seed Team Chat & Group Messages (Populated chats for messaging dashboard)
 INSERT INTO chat_messages (user_id, recipient_id, thread_type, thread_id, message, created_at)
 VALUES
-  (1, NULL, 'team', 'bharat_buildcon_2026', 'Welcome to Team Chat! Project X messaging is live.', NOW() - INTERVAL '2 hours'),
-  (3, NULL, 'team', 'bharat_buildcon_2026', 'Batch #1 Middle East is 65% completed. Great work @Caller Deepak!', NOW() - INTERVAL '1 hour'),
-  (5, NULL, 'group', '1', 'Export Sector calling is active. Gulf Heavy Structures LLC has confirmed attendance!', NOW() - INTERVAL '45 minutes'),
-  (4, 1, 'direct', NULL, 'Hi Admin, please verify hotel voucher allocation for Sr No 1002.', NOW() - INTERVAL '30 minutes'),
-  (1, 4, 'direct', NULL, 'Hotel voucher for Sr No 1002 has been verified and dispatched.', NOW() - INTERVAL '15 minutes')
+  (1, NULL, 'team', 'bharat_buildcon_2026', 'Welcome to Team Chat! Project X messaging is live.', NOW() - INTERVAL '4 hours'),
+  (3, NULL, 'team', 'bharat_buildcon_2026', 'Batch #1 Middle East is 65% completed. Great work @Caller Deepak!', NOW() - INTERVAL '3 hours'),
+  (5, NULL, 'group', '1', 'Export Sector calling is active. Gulf Heavy Structures LLC has confirmed attendance!', NOW() - INTERVAL '2 hours'),
+  (4, 1, 'direct', NULL, 'Hi Admin, please verify hotel voucher allocation for Sr No 1002.', NOW() - INTERVAL '90 minutes'),
+  (1, 4, 'direct', NULL, 'Hotel voucher for Sr No 1002 has been verified and dispatched.', NOW() - INTERVAL '80 minutes'),
+  (3, NULL, 'team', 'bharat_buildcon_2026', 'Reminder: Weekly sync scheduled for Friday at 11 AM IST.', NOW() - INTERVAL '70 minutes'),
+  (4, NULL, 'team', 'bharat_buildcon_2026', 'Understood, will submit targets update sheet before that.', NOW() - INTERVAL '60 minutes'),
+  (5, NULL, 'group', '1', 'Heidelberg Tech GMBH visa invitation letter sent successfully.', NOW() - INTERVAL '50 minutes'),
+  (2, NULL, 'team', 'bharat_buildcon_2026', 'All regional sheets synced with Supabase successfully.', NOW() - INTERVAL '40 minutes'),
+  (6, NULL, 'team', 'bharat_buildcon_2026', 'QA audit scores for callers have been updated in the QA Scorecard panel.', NOW() - INTERVAL '30 minutes'),
+  (5, 3, 'direct', NULL, 'Hi Team Lead, need approval for a flight reimbursement code FH-902.', NOW() - INTERVAL '20 minutes'),
+  (3, 5, 'direct', NULL, 'Deepak, code FH-902 is approved. Go ahead and log it.', NOW() - INTERVAL '15 minutes'),
+  (4, 3, 'direct', NULL, 'Sir, Suresh Patel confirmed flight booking for 25th Jan.', NOW() - INTERVAL '10 minutes')
 ON CONFLICT DO NOTHING;
 
--- Seed Notifications
+-- Seed Notifications (In-app notifications dashboard)
 INSERT INTO notifications (target_user_id, source_user_id, type, title, message, priority, read)
 VALUES
   (4, 1, 'task_assigned', 'New Task Batch Assigned', 'You have been assigned Domestic Buildcon Batch #4 (25 delegates).', 'normal', false),
   (5, 3, 'call_escalation', 'High-Priority Overseas Buyer', 'Tariq Al-Mansoor (UAE) requested callback regarding hotel suite reservation.', 'high', false),
-  (4, 6, 'qa_score', 'QA Audit Score Published', 'Your call audit score for Call #101 is 4.55/5.00.', 'normal', true)
+  (4, 6, 'qa_score', 'QA Audit Score Published', 'Your call audit score for Call #101 is 4.55/5.00.', 'normal', true),
+  (5, 1, 'task_assigned', 'New Sourcing Lead Assigned', 'New lead Chen Wei (China) assigned to you for Export Sector calling.', 'normal', false),
+  (3, 5, 'escalation', 'Reimbursement Approval Request', 'Deepak requested flight reimbursement approval for FH-902.', 'high', false),
+  (4, 1, 'system', 'Roster Update Notice', 'Shift schedule for week 2026-W05 is published. Check workforce panel.', 'normal', false)
 ON CONFLICT DO NOTHING;
 
--- Seed Email Logs
+-- Seed Email Logs (Detailed email engine tracking logs)
 INSERT INTO email_logs (sender_id, recipient_email, recipient_name, template_name, subject, body, status)
 VALUES
   (1, 'tariq@gulfheavy.ae', 'Tariq Al-Mansoor', 'invitation_letter', 'Bharat Buildcon 2026 — Official Invitation Letter', 'Dear Tariq Al-Mansoor, We invite Gulf Heavy Structures LLC to Bharat Buildcon 2026.', 'sent'),
   (1, 'h.weber@heidelbergtech.de', 'Heinrich Weber', 'visa_support', 'Visa Support Document — Bharat Buildcon 2026', 'Dear Heinrich Weber, Attached is your visa support letter.', 'sent'),
-  (2, 'amina@nairobiurban.co.ke', 'Amina Kassim', 'invitation_letter', 'Bharat Buildcon 2026 — Official Invitation Letter', 'Dear Amina Kassim, We invite Nairobi Urban Developers to Bharat Buildcon 2026.', 'queued')
+  (2, 'amina@nairobiurban.co.ke', 'Amina Kassim', 'invitation_letter', 'Bharat Buildcon 2026 — Official Invitation Letter', 'Dear Amina Kassim, We invite Nairobi Urban Developers to Bharat Buildcon 2026.', 'queued'),
+  (1, 'suresh@gujarathp.com', 'Suresh Patel', 'invitation_letter', 'Bharat Buildcon 2026 — Official Invitation Letter', 'Dear Suresh Patel, We invite Gujarat Heavy Piping Corp to Bharat Buildcon 2026.', 'sent'),
+  (2, 'f.alzahra@riyadhcon.sa', 'Fatima Al-Zahra', 'visa_support', 'Visa Support Document — Bharat Buildcon 2026', 'Dear Fatima Al-Zahra, Attached is your visa support letter.', 'sent'),
+  (3, 'chen.wei@shanghaiexc.cn', 'Chen Wei', 'invitation_letter', 'Bharat Buildcon 2026 — Official Invitation Letter', 'Dear Chen Wei, We invite Shanghai Excavator Works to Bharat Buildcon 2026.', 'sent'),
+  (1, 'v.mehta@delhismartcity.org', 'Vikram Mehta', 'invitation_letter', 'Bharat Buildcon 2026 — Official Invitation Letter', 'Dear Vikram Mehta, We invite Delhi Smart City Developers to Bharat Buildcon 2026.', 'failed'),
+  (2, 'karan@ktminfra.np', 'Karan Singh', 'invitation_letter', 'Bharat Buildcon 2026 — Official Invitation Letter', 'Dear Karan Singh, We invite Kathmandu Infra Group to Bharat Buildcon 2026.', 'sent')
 ON CONFLICT DO NOTHING;
 
-
--- Seed Operation Logs
+-- Seed Operation Logs (Complete audit log list)
 INSERT INTO operation_logs (user_id, user_name, user_role, action, entity_type, entity_id, status)
 VALUES
   (1, 'Master Admin', 'admin', 'system_init', 'database', 1, 'success'),
   (1, 'Master Admin', 'admin', 'batch_allocation', 'task_batch', 1, 'success'),
   (5, 'Caller Deepak', 'caller', 'registration_update', 'registration', 1001, 'success'),
-  (6, 'QA Auditor', 'qa_auditor', 'qa_score_submitted', 'qa_score', 101, 'success')
+  (6, 'QA Auditor', 'qa_auditor', 'qa_score_submitted', 'qa_score', 101, 'success'),
+  (2, 'Regional Supervisor', 'regional_admin', 'user_created', 'users', 4, 'success'),
+  (3, 'Team Lead', 'team_lead', 'shift_roster_created', 'roster', 1, 'success'),
+  (1, 'Master Admin', 'admin', 'settings_update', 'app_settings', 1, 'success'),
+  (4, 'Caller Koshti', 'caller', 'registration_update', 'registration', 1002, 'success'),
+  (5, 'Caller Deepak', 'caller', 'chat_message_sent', 'chat_messages', 3, 'success'),
+  (6, 'QA Auditor', 'qa_auditor', 'qa_score_submitted', 'qa_score', 102, 'success'),
+  (1, 'Master Admin', 'admin', 'backup_executed', 'google_sheet', 1, 'success'),
+  (2, 'Regional Supervisor', 'regional_admin', 'email_log_dispatched', 'email_logs', 4, 'success')
 ON CONFLICT DO NOTHING;
 
 -- Seed Sample App Settings
@@ -629,4 +684,5 @@ VALUES (1, 'bharat_buildcon_2026', 'Bharat Buildcon 2026', 30, true, true)
 ON CONFLICT DO NOTHING;
 
 COMMIT;
+
 
