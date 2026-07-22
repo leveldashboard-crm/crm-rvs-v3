@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { UserCog, RefreshCw, Plus, Clock, Coffee, Wifi, WifiOff, User } from "lucide-react";
+import { UserCog, RefreshCw, Plus, Clock, Coffee, Wifi, WifiOff } from "lucide-react";
 import { canManageWorkforce } from "@/lib/rbac";
 import type { V3Role } from "@/lib/rbac";
 
@@ -40,12 +40,216 @@ function minutesSince(dateStr: string | null): number | null {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
 }
 
+// Global 50 Countries Pool for Pitching & Country Allocation
+const GLOBAL_50_COUNTRIES = [
+  "India", "UAE", "Saudi Arabia", "Germany", "Japan", "USA", "UK", "Kenya", "Nigeria", "Brazil",
+  "Nepal", "Qatar", "Oman", "South Korea", "China", "Singapore", "Australia", "Canada", "Italy", "France",
+  "Spain", "Egypt", "Turkey", "Indonesia", "Malaysia", "Vietnam", "Thailand", "Mexico", "South Africa", "Ghana",
+  "Tanzania", "Ethiopia", "Chile", "Colombia", "Argentina", "Netherlands", "Belgium", "Sweden", "Switzerland", "Poland",
+  "Czech Republic", "Austria", "Greece", "Romania", "Philippines", "Pakistan", "Sri Lanka", "Kazakhstan", "Uzbekistan", "Kuwait"
+];
+
+function CountryAllocationSection({ allUsers, canManage, onSave }: { allUsers: any[]; canManage: boolean; onSave: () => void }) {
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [userCountries, setUserCountries] = useState<string[]>([]);
+  const [countryPool, setCountryPool] = useState<string[]>(GLOBAL_50_COUNTRIES);
+  const [newCountryName, setNewCountryName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const handleSelectUser = (u: any) => {
+    setSelectedUser(u);
+    setUserCountries(u.assignedCountries ?? []);
+    setMessage("");
+  };
+
+  const toggleCountry = (country: string) => {
+    setUserCountries(prev =>
+      prev.includes(country) ? prev.filter(c => c !== country) : [...prev, country]
+    );
+  };
+
+  const handleAddCustomCountry = (e: React.FormEvent) => {
+    e.preventDefault();
+    const c = newCountryName.trim();
+    if (!c) return;
+    if (!countryPool.includes(c)) {
+      setCountryPool(prev => [c, ...prev]);
+    }
+    if (!userCountries.includes(c)) {
+      setUserCountries(prev => [...prev, c]);
+    }
+    setNewCountryName("");
+  };
+
+  const handleSaveAllocations = async () => {
+    if (!selectedUser) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedUser.id,
+          assignedCountries: userCountries
+        }),
+      });
+      if (res.ok) {
+        setMessage("Country allocations saved successfully!");
+        onSave();
+      } else {
+        setMessage("Failed to save allocations");
+      }
+    } catch {
+      setMessage("Network error saving allocations");
+    }
+    setSaving(false);
+  };
+
+  const filteredCountries = countryPool.filter(c => c.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  return (
+    <div className="glass-card" style={{ padding: 18, marginTop: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div>
+          <h3 style={{ fontWeight: 800, fontSize: "0.95rem", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+            🌐 User Country Allocation & Access Control
+          </h3>
+          <p style={{ color: "var(--color-text-secondary)", fontSize: "0.78rem", margin: "2px 0 0 0" }}>
+            Allocate specific countries to team members. Users only access data & comment on their assigned countries.
+          </p>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: 16 }}>
+        {/* User Selector List */}
+        <div style={{ background: "var(--color-bg-primary)", padding: 12, borderRadius: 10, border: "1px solid var(--color-border)" }}>
+          <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", marginBottom: 8 }}>
+            Select Team Member
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+            {allUsers.map(u => {
+              const count = (u.assignedCountries ?? []).length;
+              const isSelected = selectedUser?.id === u.id;
+              return (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => handleSelectUser(u)}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "8px 10px", borderRadius: 8, textAlign: "left",
+                    background: isSelected ? "rgba(0,113,227,0.12)" : "transparent",
+                    border: isSelected ? "1px solid #0071e3" : "1px solid transparent",
+                    cursor: "pointer", transition: "all 0.15s ease"
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: isSelected ? 700 : 600 }}>{u.name}</div>
+                    <div style={{ fontSize: "0.68rem", color: "var(--color-text-tertiary)" }}>{u.role}</div>
+                  </div>
+                  <span style={{ fontSize: "0.65rem", fontWeight: 700, padding: "2px 6px", borderRadius: 10, background: "rgba(0,113,227,0.1)", color: "#0071e3" }}>
+                    {count} countries
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Country Checkbox Selector */}
+        <div>
+          {selectedUser ? (
+            <div style={{ background: "var(--color-bg-primary)", padding: 14, borderRadius: 10, border: "1px solid var(--color-border)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div>
+                  <span style={{ fontSize: "0.85rem", fontWeight: 800 }}>Allocations for {selectedUser.name}</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--color-text-tertiary)", marginLeft: 8 }}>
+                    ({userCountries.length} selected)
+                  </span>
+                </div>
+                {canManage && (
+                  <button type="button" onClick={handleSaveAllocations} disabled={saving} className="btn-primary" style={{ padding: "4px 12px", fontSize: "0.75rem" }}>
+                    {saving ? "Saving…" : "Save Country Allocations"}
+                  </button>
+                )}
+              </div>
+
+              {message && (
+                <div style={{ padding: "6px 10px", borderRadius: 6, background: "rgba(29,154,80,0.12)", color: "#1d9a50", fontSize: "0.75rem", fontWeight: 600, marginBottom: 10 }}>
+                  {message}
+                </div>
+              )}
+
+              {/* Add Custom Country Form */}
+              {canManage && (
+                <form onSubmit={handleAddCustomCountry} style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  <input
+                    type="text"
+                    placeholder="Create new country (e.g. New Zealand)..."
+                    value={newCountryName}
+                    onChange={e => setNewCountryName(e.target.value)}
+                    className="input"
+                    style={{ flex: 1, padding: "4px 8px", fontSize: "0.75rem" }}
+                  />
+                  <button type="submit" className="btn-secondary" style={{ padding: "4px 10px", fontSize: "0.75rem" }}>+ Add Country</button>
+                </form>
+              )}
+
+              {/* Country Filter Search */}
+              <input
+                type="text"
+                placeholder="Search from 50 global countries..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="input"
+                style={{ width: "100%", padding: "4px 8px", fontSize: "0.75rem", marginBottom: 10 }}
+              />
+
+              {/* Grid of 50 Countries */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, maxHeight: 220, overflowY: "auto", paddingRight: 4 }}>
+                {filteredCountries.map(c => {
+                  const checked = userCountries.includes(c);
+                  return (
+                    <label
+                      key={c}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderRadius: 6,
+                        background: checked ? "rgba(0,113,227,0.1)" : "var(--color-bg-secondary)",
+                        border: checked ? "1px solid #0071e3" : "1px solid var(--color-border)",
+                        fontSize: "0.72rem", cursor: "pointer", fontWeight: checked ? 700 : 400
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleCountry(c)}
+                        disabled={!canManage}
+                      />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: 40, color: "var(--color-text-tertiary)", fontSize: "0.85rem", background: "var(--color-bg-primary)", borderRadius: 10 }}>
+              Select a team member on the left to allocate country access & data filters.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function WorkforcePage({ role }: { role: V3Role }) {
   const [shifts, setShifts] = useState<ShiftRecord[]>([]);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [allUsers, setAllUsers] = useState<{ id: number; name: string | null }[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [form, setForm] = useState({ userId: "", shiftName: "", startTime: "09:00", endTime: "18:00", timezone: "Asia/Kolkata" });
   const canManage = canManageWorkforce(role);
 
@@ -67,12 +271,14 @@ export default function WorkforcePage({ role }: { role: V3Role }) {
     setLoading(false);
   }, []);
 
+  const fetchUsers = useCallback(() => {
+    fetch("/api/admin/users").then(r => r.json()).then(d => setAllUsers(d.users ?? [])).catch(() => {});
+  }, []);
+
   useEffect(() => {
     fetchData();
-    if (canManage) {
-      fetch("/api/admin/users").then(r => r.json()).then(d => setAllUsers(d.users ?? [])).catch(() => {});
-    }
-  }, [fetchData, canManage]);
+    fetchUsers();
+  }, [fetchData, fetchUsers]);
 
   // Auto-refresh every 30s for live presence
   useEffect(() => {
@@ -106,10 +312,10 @@ export default function WorkforcePage({ role }: { role: V3Role }) {
             <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #0891b2, #0071e3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <UserCog size={18} color="white" />
             </div>
-            <h1 style={{ fontSize: "1.4rem", fontWeight: 800, margin: 0 }}>Workforce & Shifts</h1>
+            <h1 style={{ fontSize: "1.4rem", fontWeight: 800, margin: 0 }}>Workforce & Country Allocations</h1>
           </div>
           <p style={{ color: "var(--color-text-secondary)", fontSize: "0.875rem", margin: 0 }}>
-            Shift scheduling, real-time presence, and attendance tracking
+            Shift scheduling, country allocation, and real-time presence tracking
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -133,6 +339,7 @@ export default function WorkforcePage({ role }: { role: V3Role }) {
         ))}
       </div>
 
+      {/* Presence & Shift Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
         {/* Live Presence Grid */}
         <div className="glass-card" style={{ padding: 16 }}>
@@ -260,6 +467,9 @@ export default function WorkforcePage({ role }: { role: V3Role }) {
           </div>
         </div>
       </div>
+
+      {/* Country Allocation Manager Section */}
+      <CountryAllocationSection allUsers={allUsers} canManage={canManage} onSave={fetchUsers} />
     </div>
   );
 }

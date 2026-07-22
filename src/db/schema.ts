@@ -25,8 +25,10 @@ export const users = pgTable("users", {
   isActive: boolean("is_active").default(true),
   // Project X: sector assignment & allocated country pools
   sector: text("sector"),
+  country: text("country"),
   assignedCountries: jsonb("assigned_countries"),
   lastLoginAt: timestamp("last_login_at"),
+
   // Presence tracking (Phase 4 — Workforce)
   lastSeenAt: timestamp("last_seen_at"),   // heartbeat timestamp
   presenceStatus: text("presence_status").default("offline"), // online | idle | on_break | offline

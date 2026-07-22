@@ -24,7 +24,18 @@ export async function GET() {
   if ("error" in check) return NextResponse.json({ error: check.error }, { status: check.status });
 
   const allUsers = await db
-    .select({ id: users.id, email: users.email, name: users.name, role: users.role, region: users.region, continent: users.continent, createdAt: users.createdAt })
+    .select({
+      id: users.id,
+      email: users.email,
+      name: users.name,
+      role: users.role,
+      sector: users.sector,
+      country: users.country,
+      assignedCountries: users.assignedCountries,
+      region: users.region,
+      continent: users.continent,
+      createdAt: users.createdAt
+    })
     .from(users)
     .orderBy(users.createdAt);
 
@@ -37,8 +48,8 @@ export async function POST(request: Request) {
   if ("error" in check) return NextResponse.json({ error: check.error }, { status: check.status });
 
   try {
-    const { email, password, name, role, region, continent } = await request.json() as {
-      email: string; password: string; name?: string; role?: string; region?: string; continent?: string;
+    const { email, password, name, role, sector, country, assignedCountries, region, continent } = await request.json() as {
+      email: string; password: string; name?: string; role?: string; sector?: string; country?: string; assignedCountries?: string[]; region?: string; continent?: string;
     };
 
     if (!email?.trim() || !password?.trim())
@@ -60,14 +71,27 @@ export async function POST(request: Request) {
         passwordHash,
         name: name ?? email,
         role: assignedRole,
+        sector: sector ?? "Bharat Buildcon",
+        country: country ?? null,
+        assignedCountries: assignedCountries ?? [],
         region: region ?? null,
         continent: continent ?? null,
       })
       .onConflictDoUpdate({
         target: users.email,
-        set: { passwordHash, name: name ?? email, role: assignedRole, region: region ?? null, continent: continent ?? null, updatedAt: new Date() },
+        set: {
+          passwordHash,
+          name: name ?? email,
+          role: assignedRole,
+          sector: sector ?? "Bharat Buildcon",
+          country: country ?? null,
+          assignedCountries: assignedCountries ?? [],
+          region: region ?? null,
+          continent: continent ?? null,
+          updatedAt: new Date()
+        },
       })
-      .returning({ id: users.id, email: users.email, name: users.name, role: users.role });
+      .returning({ id: users.id, email: users.email, name: users.name, role: users.role, assignedCountries: users.assignedCountries });
 
     return NextResponse.json({ ok: true, user });
   } catch (err: unknown) {
@@ -76,14 +100,14 @@ export async function POST(request: Request) {
   }
 }
 
-// ─── PUT /api/admin/users — update role / name ───────────────────────────────
+// ─── PUT /api/admin/users — update role / name / assignedCountries ───────────────────────────────
 export async function PUT(request: Request) {
   const check = await requireAdmin();
   if ("error" in check) return NextResponse.json({ error: check.error }, { status: check.status });
 
   try {
-    const { id, role, name, password, region, continent } = await request.json() as {
-      id: number; role?: string; name?: string; password?: string; region?: string; continent?: string;
+    const { id, role, name, password, sector, country, assignedCountries, region, continent } = await request.json() as {
+      id: number; role?: string; name?: string; password?: string; sector?: string; country?: string; assignedCountries?: string[]; region?: string; continent?: string;
     };
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
@@ -97,11 +121,14 @@ export async function PUT(request: Request) {
     }
     if (name) updates.name = name;
     if (password) updates.passwordHash = hashPassword(password);
+    if (sector !== undefined) updates.sector = sector;
+    if (country !== undefined) updates.country = country;
+    if (assignedCountries !== undefined) updates.assignedCountries = assignedCountries;
     if (region !== undefined) updates.region = region;
     if (continent !== undefined) updates.continent = continent;
 
     const [updated] = await db.update(users).set(updates).where(eq(users.id, id)).returning({
-      id: users.id, email: users.email, name: users.name, role: users.role,
+      id: users.id, email: users.email, name: users.name, role: users.role, assignedCountries: users.assignedCountries,
     });
 
     return NextResponse.json({ ok: true, user: updated });
@@ -109,6 +136,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Error" }, { status: 500 });
   }
 }
+
 
 // ─── DELETE /api/admin/users — delete user ───────────────────────────────────
 export async function DELETE(request: Request) {

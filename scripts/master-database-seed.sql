@@ -421,20 +421,21 @@ CREATE TABLE IF NOT EXISTS operation_logs (
 -- ─── 3. RAW DEMO SEED DATA ───────────────────────────────────────────────────
 
 -- Seed Users (Password: buildcon2026)
-INSERT INTO users (email, name, password_hash, role, sector, country)
+INSERT INTO users (email, name, password_hash, role, sector, country, assigned_countries)
 VALUES
-  ('admin@buildcon.com', 'Master Admin', '$2b$10$wT8...demo_hash', 'admin', 'Bharat Buildcon', 'India'),
-  ('regional_admin@buildcon.com', 'Regional Supervisor', '$2b$10$wT8...demo_hash', 'regional_admin', 'Bharat Buildcon', 'India'),
-  ('team_lead@buildcon.com', 'Team Lead', '$2b$10$wT8...demo_hash', 'team_lead', 'Bharat Buildcon', 'India'),
-  ('caller@buildcon.com', 'Caller Koshti', '$2b$10$wT8...demo_hash', 'caller', 'Bharat Buildcon', 'India'),
-  ('caller2@buildcon.com', 'Caller Deepak', '$2b$10$wT8...demo_hash', 'caller', 'Export Sector', 'UAE'),
-  ('qa_auditor@buildcon.com', 'QA Auditor', '$2b$10$wT8...demo_hash', 'qa_auditor', 'Bharat Buildcon', 'India'),
-  ('analyst@buildcon.com', 'BI Analyst', '$2b$10$wT8...demo_hash', 'analyst', 'Bharat Buildcon', 'India')
+  ('admin@buildcon.com', 'Master Admin', '$2b$10$wT8...demo_hash', 'admin', 'Bharat Buildcon', 'India', '["India", "UAE", "Saudi Arabia", "Germany", "USA", "UK", "Japan", "Kenya", "Nigeria", "Brazil"]'::jsonb),
+  ('regional_admin@buildcon.com', 'Regional Supervisor', '$2b$10$wT8...demo_hash', 'regional_admin', 'Bharat Buildcon', 'India', '["India", "Nepal", "Bhutan", "Sri Lanka", "Bangladesh", "UAE", "Qatar", "Oman"]'::jsonb),
+  ('team_lead@buildcon.com', 'Team Lead', '$2b$10$wT8...demo_hash', 'team_lead', 'Bharat Buildcon', 'India', '["Germany", "Japan", "South Korea", "China", "Singapore", "Australia", "Canada", "France"]'::jsonb),
+  ('caller@buildcon.com', 'Caller Koshti', '$2b$10$wT8...demo_hash', 'caller', 'Bharat Buildcon', 'India', '["India", "Nepal", "Bhutan", "Sri Lanka", "Bangladesh", "Thailand", "Vietnam", "Malaysia", "Singapore", "Indonesia"]'::jsonb),
+  ('caller2@buildcon.com', 'Caller Deepak', '$2b$10$wT8...demo_hash', 'caller', 'Export Sector', 'UAE', '["UAE", "Saudi Arabia", "Qatar", "Oman", "Kuwait", "Bahrain", "Kenya", "Nigeria", "South Africa", "Egypt"]'::jsonb),
+  ('qa_auditor@buildcon.com', 'QA Auditor', '$2b$10$wT8...demo_hash', 'qa_auditor', 'Bharat Buildcon', 'India', '["India", "UAE", "Germany"]'::jsonb),
+  ('analyst@buildcon.com', 'BI Analyst', '$2b$10$wT8...demo_hash', 'analyst', 'Bharat Buildcon', 'India', '["India", "USA", "UK", "China"]'::jsonb)
 ON CONFLICT (email) DO UPDATE SET
   name = EXCLUDED.name,
   role = EXCLUDED.role,
   sector = EXCLUDED.sector,
-  country = EXCLUDED.country;
+  country = EXCLUDED.country,
+  assigned_countries = EXCLUDED.assigned_countries;
 
 -- Reset sequence for users
 SELECT setval('users_id_seq', COALESCE((SELECT MAX(id) FROM users), 1));
@@ -443,9 +444,9 @@ SELECT setval('users_id_seq', COALESCE((SELECT MAX(id) FROM users), 1));
 -- Seed Sectors
 INSERT INTO sectors (code, name, description, country_pool, time_window_start, time_window_end)
 VALUES
-  ('bb_main', 'Bharat Buildcon Main', 'Domestic construction & infrastructure trade summit', '["India", "Nepal", "Bhutan", "Sri Lanka"]'::jsonb, '09:00', '18:00'),
-  ('export_desk', 'Export Sector', 'Overseas buyers and international trade delegates', '["UAE", "Saudi Arabia", "Qatar", "Oman", "Kenya", "Nigeria"]'::jsonb, '10:00', '19:00'),
-  ('heavy_machinery', 'Heavy Machinery & Equipment', 'Industrial cranes, excavators, and concrete batching plants', '["Germany", "Japan", "South Korea", "China", "India"]'::jsonb, '08:30', '17:30')
+  ('bb_main', 'Bharat Buildcon Main', 'Domestic construction & infrastructure trade summit', '["India", "Nepal", "Bhutan", "Sri Lanka", "Bangladesh", "Thailand", "Vietnam", "Malaysia", "Singapore", "Indonesia"]'::jsonb, '09:00', '18:00'),
+  ('export_desk', 'Export Sector', 'Overseas buyers and international trade delegates', '["UAE", "Saudi Arabia", "Qatar", "Oman", "Kuwait", "Bahrain", "Kenya", "Nigeria", "South Africa", "Egypt", "Ghana", "Tanzania"]'::jsonb, '10:00', '19:00'),
+  ('heavy_machinery', 'Heavy Machinery & Equipment', 'Industrial cranes, excavators, and concrete batching plants', '["Germany", "Japan", "South Korea", "China", "USA", "UK", "Australia", "Canada", "Italy", "France", "Spain", "Netherlands"]'::jsonb, '08:30', '17:30')
 ON CONFLICT DO NOTHING;
 
 
@@ -455,7 +456,7 @@ VALUES
   (1, 'Export Calling Desk', 'Export Sector Calling & Strategy', '[1, 2, 3, 4]'::jsonb, 'Master Admin'),
   (2, 'Bharat Buildcon Operations', 'Main operations and team updates', '[1, 2, 3, 4, 5, 6, 7]'::jsonb, 'Master Admin'),
   (3, 'High-Priority Follow-ups', 'Delegates requiring immediate response', '[1, 3, 4]'::jsonb, 'Team Lead')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- Reset sequence for chat_groups
 SELECT setval('chat_groups_id_seq', (SELECT MAX(id) FROM chat_groups));
@@ -469,7 +470,7 @@ ON CONFLICT DO NOTHING;
 
 
 
--- Seed Sample Registrations Raw Demo Data (20+ Records across domestic & export sectors)
+-- Seed Sample Registrations Raw Demo Data (50 Delegates across 50 Countries for Pitching CRM)
 INSERT INTO registrations (sr_no, first_name, last_name, country_name, company_name, participant_email, participant_mobile, status, main_import_product_1, main_import_product_2, poc, designation, company_website, flight_hotel_code, remarks)
 VALUES
   (1001, 'Tariq', 'Al-Mansoor', 'UAE', 'Gulf Heavy Structures LLC', 'tariq@gulfheavy.ae', '+971501234567', 'Confirmed', 'Structural Steel Columns', 'Rebar Mesh', 'Caller Deepak', 'Managing Director', 'gulfheavy.ae', 'FH-902', 'High-priority buyer for Export Sector'),
@@ -481,7 +482,47 @@ VALUES
   (1007, 'Chen', 'Wei', 'China', 'Shanghai Excavator Works', 'chen.wei@shanghaiexc.cn', '+862168889999', 'Confirmed', 'Heavy Excavators', 'Hydraulic Pumps', 'Caller Deepak', 'Chief Trade Representative', 'shanghaiexc.cn', 'FH-701', 'Visa support document dispatched'),
   (1008, 'Vikram', 'Mehta', 'India', 'Delhi Smart City Developers', 'v.mehta@delhismartcity.org', '+919811098765', 'Confirmed', 'Smart Lighting Cables', 'Solar Grid Materials', 'Caller Koshti', 'Project Director', 'delhismartcity.org', 'FH-202', 'Confirmed attendance for Day 1 & Day 2'),
   (1009, 'Omar', 'Farooq', 'Qatar', 'Doha Sky Building Mat', 'omar@dohasky.qa', '+97444123456', 'Pending', 'Marble & Granite Slabs', 'Ceramic Tiles', 'Caller Deepak', 'General Manager', 'dohasky.qa', 'FH-509', 'Awaiting passport front copy'),
-  (1010, 'Karan', 'Singh', 'Nepal', 'Kathmandu Infra Group', 'karan@ktminfra.np', '+9779851012345', 'In Progress', 'Bridge Girders', 'Steel Cables', 'Caller Koshti', 'Executive Director', 'ktminfra.np', 'FH-610', 'Scheduled call with Team Lead')
+  (1010, 'Karan', 'Singh', 'Nepal', 'Kathmandu Infra Group', 'karan@ktminfra.np', '+9779851012345', 'In Progress', 'Bridge Girders', 'Steel Cables', 'Caller Koshti', 'Executive Director', 'ktminfra.np', 'FH-610', 'Scheduled call with Team Lead'),
+  (1011, 'Kenji', 'Takahashi', 'Japan', 'Tokyo Heavy Machinery Corp', 'k.takahashi@tokyomach.jp', '+81335550199', 'Confirmed', 'Robotic Welding Arms', 'Industrial Automation', 'Team Lead', 'Chief Technology Officer', 'tokyomach.jp', 'FH-771', 'Keynote speaker on Day 1'),
+  (1012, 'Robert', 'Miller', 'USA', 'American Infrastructure Co', 'r.miller@usinfra.com', '+12125550144', 'Confirmed', 'Asphalt Paving Rig', 'Road Rollers', 'Team Lead', 'VP Strategic Procurement', 'usinfra.com', 'FH-812', 'Seeking joint venture partners'),
+  (1013, 'James', 'Wilson', 'UK', 'London Bridge Engineering', 'j.wilson@londonbridge.uk', '+442079460123', 'In Progress', 'Architectural Glass', 'Steel Truss Systems', 'Master Admin', 'Principal Partner', 'londonbridge.uk', 'FH-933', 'Requested 1-on-1 buyer meeting'),
+  (1014, 'Carlos', 'Silva', 'Brazil', 'Sao Paulo Heavy Constr', 'carlos@saopaulohc.br', '+5511987654321', 'Pending', 'Earthmoving Bulldozers', 'Crusher Machines', 'Caller Deepak', 'Sourcing Lead', 'saopaulohc.br', 'FH-414', 'Inquired about visa assistance'),
+  (1015, 'Tenzin', 'Norbu', 'Bhutan', 'Thimphu Eco Infra Corp', 'norbu@thimphueco.bt', '+97517123456', 'Confirmed', 'Timber Framing', 'Solar Roof Panels', 'Caller Koshti', 'Managing Director', 'thimphueco.bt', 'FH-115', 'Attending with 3 delegates'),
+  (1016, 'Nimal', 'Perera', 'Sri Lanka', 'Colombo Port Developers', 'nimal@colomboport.lk', '+94112345678', 'In Progress', 'Dredging Equipment', 'Marine Steel Sheets', 'Caller Koshti', 'Head of Marine Eng', 'colomboport.lk', 'FH-216', 'Flight arrival confirmed'),
+  (1017, 'Rahim', 'Uddin', 'Bangladesh', 'Dhaka Skyline Builders', 'rahim@dhakasky.bd', '+8801711223344', 'Confirmed', 'AAC Concrete Blocks', 'Thermal Insulation', 'Caller Koshti', 'CEO', 'dhakasky.bd', 'FH-317', 'Hotel room allocated'),
+  (1018, 'Somchai', 'Jaidee', 'Thailand', 'Bangkok Modular Homes', 'somchai@bkkmodular.th', '+6621234567', 'Pending', 'Prefabricated Cabins', 'Composite Panels', 'Caller Koshti', 'General Manager', 'bkkmodular.th', 'FH-418', 'Interested in export dealership'),
+  (1019, 'Nguyen', 'Van', 'Vietnam', 'Hanoi Smart Towers', 'nguyen.van@hanoismart.vn', '+842438889999', 'In Progress', 'Elevator Systems', 'HVAC Chillers', 'Caller Koshti', 'Project Manager', 'hanoismart.vn', 'FH-519', 'Sent product catalog'),
+  (1020, 'Ahmad', 'Zaki', 'Malaysia', 'KL Structural Steel', 'zaki@klstructural.my', '+60321112222', 'Confirmed', 'Galvanized Beams', 'Decking Sheets', 'Caller Koshti', 'Procurement Director', 'klstructural.my', 'FH-620', 'Confirmed 3-day pass'),
+  (1021, 'David', 'Lim', 'Singapore', 'Singa Urban Solutions', 'david.lim@singaurban.sg', '+6567890123', 'Confirmed', 'Smart Building IoT', 'BMS Controls', 'Caller Koshti', 'Chief Innovation Officer', 'singaurban.sg', 'FH-721', 'VIP Lounge access requested'),
+  (1022, 'Budi', 'Santoso', 'Indonesia', 'Jakarta Harbour Construction', 'budi@jakartaharbour.id', '+62215556677', 'In Progress', 'Piling Foundations', 'Geo-textile Fabrics', 'Caller Koshti', 'Technical Director', 'jakartaharbour.id', 'FH-822', 'Requested trade meeting'),
+  (1023, 'Fahad', 'Al-Sabah', 'Kuwait', 'Kuwait National Buildcon', 'f.sabah@kuwaitbuild.kw', '+96522334455', 'Confirmed', 'Bitumen Membrane', 'Waterproofing Paints', 'Caller Deepak', 'Chairman', 'kuwaitbuild.kw', 'FH-923', 'VIP Suite booked'),
+  (1024, 'Youssef', 'Al-Khalifa', 'Bahrain', 'Manama Towers Est', 'youssef@manamatowers.bh', '+97317555666', 'Pending', 'Aluminum Extrusions', 'Curtain Walls', 'Caller Deepak', 'Procurement Officer', 'manamatowers.bh', 'FH-124', 'Awaiting flight details'),
+  (1025, 'Nelson', 'Mandela Jr', 'South Africa', 'Cape Infrastructure Trust', 'nelson@capeinfra.co.za', '+27214001234', 'Confirmed', 'Mining Conveyor Belts', 'Crusher Parts', 'Caller Deepak', 'Director', 'capeinfra.co.za', 'FH-225', 'Confirmed booth visit'),
+  (1026, 'Khaled', 'El-Sayed', 'Egypt', 'Nile Delta Contracting', 'khaled@niledelta.eg', '+20227940000', 'In Progress', 'Granite Blocks', 'Irrigation Pipes', 'Caller Deepak', 'Managing Partner', 'niledelta.eg', 'FH-326', 'Follow-up call on 25th'),
+  (1027, 'Kwame', 'Mensah', 'Ghana', 'Accra Metro Development', 'kwame@accrametro.gh', '+233302123456', 'Confirmed', 'Road Signs & Signals', 'Asphalt Additives', 'Caller Deepak', 'Chief Engineer', 'accrametro.gh', 'FH-427', 'Hotel booked'),
+  (1028, 'Joseph', 'Mweru', 'Tanzania', 'Dar Es Salaam Heavy Material', 'mweru@dardev.tz', '+255222111222', 'Pending', 'Scaffolding Couplers', 'Safety Netting', 'Caller Deepak', 'Purchasing Agent', 'dardev.tz', 'FH-528', 'Sent invitation badge'),
+  (1029, 'Bekele', 'Tadesse', 'Ethiopia', 'Addis Eco Building', 'bekele@addiseco.et', '+251115511223', 'In Progress', 'Clay Roof Tiles', 'Bamboo Flooring', 'Caller Deepak', 'General Manager', 'addiseco.et', 'FH-629', 'Checking flight options'),
+  (1030, 'Gonzalo', 'Rojas', 'Chile', 'Santiago Mining Construction', 'gonzalo@santiagomining.cl', '+56229400100', 'Confirmed', 'Heavy Dump Truck Tires', 'Hydraulic Hoses', 'Master Admin', 'Procurement VP', 'santiagomining.cl', 'FH-730', 'Confirmed VIP guest'),
+  (1031, 'Mateo', 'Gomez', 'Colombia', 'Bogota Infrastructure SA', 'mateo@bogotainfra.co', '+5717440099', 'Pending', 'Concrete Mixers', 'Vibrators', 'Master Admin', 'Operations Head', 'bogotainfra.co', 'FH-831', 'Follow-up email sent'),
+  (1032, 'Alejandro', 'Fernandez', 'Argentina', 'Buenos Aires Civil Works', 'alejandro@bacivil.ar', '+541143210000', 'In Progress', 'Steel Rebar 12mm', 'Wire Rods', 'Master Admin', 'Purchasing Manager', 'bacivil.ar', 'FH-932', 'Passport copy uploaded'),
+  (1033, 'Jan', 'De Jong', 'Netherlands', 'Amsterdam Port Heavy Tech', 'jan@amsterdamport.nl', '+31205550011', 'Confirmed', 'Port Cranes', 'Container Handlers', 'Team Lead', 'Managing Director', 'amsterdamport.nl', 'FH-133', 'Attending panel discussion'),
+  (1034, 'Luc', 'Peeters', 'Belgium', 'Brussels Eco Concrete', 'luc@brusselseco.be', '+3225110022', 'Confirmed', 'Recycled Aggregates', 'Cement Fly Ash', 'Team Lead', 'Chief Sustainability Officer', 'brusselseco.be', 'FH-234', 'Hotel confirmed'),
+  (1035, 'Erik', 'Lindqvist', 'Sweden', 'Stockholm Modular Systems', 'erik@stockholmmodular.se', '+4685550033', 'In Progress', 'Cross Laminated Timber', 'Insulated Panels', 'Team Lead', 'Head of R&D', 'stockholmmodular.se', 'FH-335', 'Requested tech demo'),
+  (1036, 'Marc', 'Schneider', 'Switzerland', 'Zurich Precision Tools GMBH', 'marc@zurichprecision.ch', '+41442110044', 'Confirmed', 'Laser Distance Meters', 'Total Stations', 'Team Lead', 'Global Sales Director', 'zurichprecision.ch', 'FH-436', 'Exhibitor booth reserved'),
+  (1037, 'Piotr', 'Kowalski', 'Poland', 'Warsaw Structural Steel SP', 'piotr@warsawsteel.pl', '+48226000055', 'Pending', 'H-Beams', 'Angle Iron', 'Team Lead', 'Procurement Director', 'warsawsteel.pl', 'FH-537', 'Awaiting confirmation'),
+  (1038, 'Pavel', 'Novak', 'Czech Republic', 'Prague Machinery Works', 'pavel@praguemach.cz', '+420221000066', 'In Progress', 'CNC Lathe Machines', 'Milling Cutters', 'Team Lead', 'Plant Manager', 'praguemach.cz', 'FH-638', 'Sent trade profile'),
+  (1039, 'Stefan', 'Gruber', 'Austria', 'Vienna Alpine Building', 'stefan@viennaalpine.at', '+4315000077', 'Confirmed', 'Tunnel Boring Machines', 'Rock Bolts', 'Team Lead', 'Project Director', 'viennaalpine.at', 'FH-739', 'Flight confirmed'),
+  (1040, 'Nikos', 'Papadopoulos', 'Greece', 'Athens Marble & Stone', 'nikos@athensstone.gr', '+302103000088', 'In Progress', 'White Pentelikon Marble', 'Travertine', 'Team Lead', 'Managing Director', 'athensstone.gr', 'FH-840', 'Requested booth space'),
+  (1041, 'Andrei', 'Popescu', 'Romania', 'Bucharest Heavy Equip SRL', 'andrei@bucharestequip.ro', '+40213000099', 'Pending', 'Road Graders', 'Compactor Rollers', 'Team Lead', 'Purchasing Agent', 'bucharestequip.ro', 'FH-941', 'Sent brochure'),
+  (1042, 'Juan', 'Reyes', 'Philippines', 'Manila Bay Construction', 'juan@manilabaycon.ph', '+63285550100', 'Confirmed', 'Dredging Pipes', 'Sheet Piles', 'Caller Koshti', 'VP Sourcing', 'manilabaycon.ph', 'FH-142', 'Hotel suite assigned'),
+  (1043, 'Tariq', 'Khan', 'Pakistan', 'Lahore Steel Mills Corp', 'tariq@lahoresteel.pk', '+924235550111', 'In Progress', 'Billet Steel', 'Sponge Iron', 'Caller Koshti', 'General Manager', 'lahoresteel.pk', 'FH-243', 'Follow-up call on 23rd'),
+  (1044, 'Ali', 'Nurmatov', 'Kazakhstan', 'Astana Heavy Infra', 'ali@astanahc.kz', '+77172550122', 'Confirmed', 'Pipeline Valves', 'Gas Compressors', 'Caller Deepak', 'CEO', 'astanahc.kz', 'FH-344', 'Confirmed VIP guest'),
+  (1045, 'Sardor', 'Karimov', 'Uzbekistan', 'Tashkent Urban Dev', 'sardor@tashkenturban.uz', '+998712550133', 'Pending', 'Roofing Shingles', 'Plywood Panels', 'Caller Deepak', 'Import Director', 'tashkenturban.uz', 'FH-445', 'Awaiting passport front'),
+  (1046, 'Liam', 'O’Connor', 'Australia', 'Sydney Harbour Heavy Engineering', 'liam@sydneyheavy.au', '+61292000144', 'Confirmed', 'Piling Hammers', 'Tower Crane Jibs', 'Team Lead', 'Chief Operating Officer', 'sydneyheavy.au', 'FH-546', 'Keynote panel panelist'),
+  (1047, 'Ethan', 'Tremblay', 'Canada', 'Toronto Heavy Mining Corp', 'ethan@torontomining.ca', '+14165550155', 'Confirmed', 'Underground Loaders', 'Ventilation Fans', 'Team Lead', 'VP Supply Chain', 'torontomining.ca', 'FH-647', 'Hotel booked at Taj'),
+  (1048, 'Mateo', 'Hernandez', 'Mexico', 'Guadalajara Concrete SA', 'mateo@guadalajaraconcrete.mx', '+523338000166', 'In Progress', 'Transit Mixers', 'Batching Plants', 'Master Admin', 'Director of Operations', 'guadalajaraconcrete.mx', 'FH-748', 'Sent product specs'),
+  (1049, 'Dimitri', 'Rossi', 'Italy', 'Milan Heavy Steel SRL', 'dimitri@milansteel.it', '+390280000177', 'Confirmed', 'Stainless Steel Plates', 'Seamless Pipes', 'Team Lead', 'Export Sales Manager', 'milansteel.it', 'FH-849', 'VIP Lounge pass issued'),
+  (1050, 'Pierre', 'Dubois', 'France', 'Paris Infrastructure SAS', 'pierre@parisinfa.fr', '+33140000188', 'Confirmed', 'Tunnel Lining Segments', 'Geotextile Membranes', 'Team Lead', 'Procurement VP', 'parisinfra.fr', 'FH-950', 'Flight EK-073 confirmed')
 ON CONFLICT (sr_no) DO NOTHING;
 
 -- Seed Sample Travel Desk Records
