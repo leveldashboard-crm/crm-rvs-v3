@@ -18,6 +18,7 @@ async function ensureCallerColumns() {
     await db.execute(sql`ALTER TABLE registrations ADD COLUMN IF NOT EXISTS caller_comment TEXT`);
     await db.execute(sql`ALTER TABLE registrations ADD COLUMN IF NOT EXISTS caller_remark TEXT`);
     await db.execute(sql`ALTER TABLE registrations ADD COLUMN IF NOT EXISTS email_request_status TEXT DEFAULT 'none'`);
+    await db.execute(sql`ALTER TABLE registrations ADD COLUMN IF NOT EXISTS follow_up_date TIMESTAMPTZ`);
     _columnsChecked = true;
   } catch (err) {
     console.error("[ensureCallerColumns] failed to alter table:", err);
@@ -37,11 +38,12 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { registrationId, callerComment, callerRemark, emailRequestStatus } = body as {
+  const { registrationId, callerComment, callerRemark, emailRequestStatus, followUpDate } = body as {
     registrationId: number;
     callerComment?: string | null;
     callerRemark?: string | null;
     emailRequestStatus?: string | null;
+    followUpDate?: string | null;
   };
 
   if (!registrationId) {
@@ -87,6 +89,10 @@ export async function PATCH(req: NextRequest) {
       updatePayload.callerRemark = callerRemark;
     }
 
+    if (followUpDate !== undefined) {
+      updatePayload.followUpDate = followUpDate ? new Date(followUpDate) : null;
+    }
+
     if (emailRequestStatus !== undefined) {
       // Access check: only admins/supervisors/team_leads can set emailRequestStatus to 'sent'
       if (emailRequestStatus === "sent") {
@@ -130,6 +136,7 @@ export async function PATCH(req: NextRequest) {
       callerComment,
       callerRemark,
       emailRequestStatus,
+      followUpDate: followUpDate ? new Date(followUpDate).toISOString() : null,
     });
     if (updated) {
       return NextResponse.json({
@@ -147,6 +154,7 @@ export async function PATCH(req: NextRequest) {
           callerComment: updated.caller_comment,
           callerRemark: updated.caller_remark,
           emailRequestStatus: updated.email_request_status,
+          followUpDate: updated.follow_up_date,
         }
       });
     }
@@ -155,3 +163,4 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Internal database error" }, { status: 500 });
   }
 }
+

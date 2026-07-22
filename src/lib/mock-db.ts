@@ -16,7 +16,9 @@ export interface MockRegistration {
   caller_comment: string | null;
   caller_remark: string | null;
   email_request_status: "none" | "pending" | "sent" | null;
+  follow_up_date?: string | null;
   status?: string;
+
   eventId?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -212,6 +214,7 @@ export const mockRegistrationsStore = {
       callerComment?: string | null;
       callerRemark?: string | null;
       emailRequestStatus?: string | null;
+      followUpDate?: string | null;
     }
   ): MockRegistration | null {
     const list = (globalThis as any)[GLOBAL_KEY] as MockRegistration[];
@@ -223,9 +226,11 @@ export const mockRegistrationsStore = {
       caller_comment: payload.callerComment !== undefined ? payload.callerComment : list[idx].caller_comment,
       caller_remark: payload.callerRemark !== undefined ? payload.callerRemark : list[idx].caller_remark,
       email_request_status: payload.emailRequestStatus !== undefined ? (payload.emailRequestStatus as any) : list[idx].email_request_status,
+      follow_up_date: payload.followUpDate !== undefined ? payload.followUpDate : list[idx].follow_up_date,
     };
 
     list[idx] = updated;
     return updated;
   }
+
 };

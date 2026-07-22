@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
   Search, Mail, CheckCircle, Clock, RefreshCw,
   Filter, Upload, FileSpreadsheet, X, ChevronDown,
-  ChevronRight, Globe, Tag, AlertCircle
+  ChevronRight, Globe, Tag, AlertCircle, Calendar, CalendarDays
 } from "lucide-react";
 import { normalizeRole } from "@/lib/rbac";
 
@@ -26,12 +26,14 @@ interface LeadRow {
   caller_comment: string | null;
   caller_remark: string | null;
   email_request_status: "none" | "pending" | "sent" | null;
+  follow_up_date?: string | null;
   status?: string;
   participant_mobile?: string;
   participant_email?: string;
   designation?: string;
   company_website?: string;
 }
+
 
 // ─── Excel Import Types ────────────────────────────────────────────────────────
 interface ParsedImportRow {
@@ -157,6 +159,7 @@ export default function ExcelLeadsSheet() {
   // ─── State ────────────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
   const [filterPendingEmails, setFilterPendingEmails] = useState(false);
+  const [filterFollowUp, setFilterFollowUp] = useState<"all" | "today" | "overdue" | "scheduled" | "set">("all");
   const [selectedCallerFilter, setSelectedCallerFilter] = useState<string>("all");
   const [selectedCountryFilter, setSelectedCountryFilter] = useState<string>("all");
   const [selectedSectorFilter, setSelectedSectorFilter] = useState<string>("all");
@@ -207,6 +210,19 @@ export default function ExcelLeadsSheet() {
       list = list.filter((r) => r.email_request_status === "pending");
     }
 
+    if (filterFollowUp !== "all") {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      list = list.filter((r) => {
+        if (!r.follow_up_date) return false;
+        const dateStr = new Date(r.follow_up_date).toISOString().slice(0, 10);
+        if (filterFollowUp === "today") return dateStr === todayStr;
+        if (filterFollowUp === "overdue") return dateStr < todayStr;
+        if (filterFollowUp === "scheduled") return dateStr > todayStr;
+        if (filterFollowUp === "set") return !!r.follow_up_date;
+        return true;
+      });
+    }
+
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((r) =>
@@ -216,7 +232,7 @@ export default function ExcelLeadsSheet() {
     }
 
     return list;
-  }, [rows, isCaller, selectedCallerFilter, selectedCountryFilter, selectedSectorFilter, filterPendingEmails, search]);
+  }, [rows, isCaller, selectedCallerFilter, selectedCountryFilter, selectedSectorFilter, filterPendingEmails, filterFollowUp, search]);
 
   // ─── Update handler ───────────────────────────────────────────────────────
   const handleUpdate = async (
@@ -225,8 +241,10 @@ export default function ExcelLeadsSheet() {
       callerComment?: string | null;
       callerRemark?: string | null;
       emailRequestStatus?: string | null;
+      followUpDate?: string | null;
     }
   ) => {
+
     setUpdatingId(regId);
     try {
       const res = await fetch("/api/v1/registrations/update", {
@@ -343,6 +361,42 @@ export default function ExcelLeadsSheet() {
     "Wrong Number / Invalid Details",
   ];
 
+  const formatFollowUpBadge = (dateStr: string | null | undefined) => {
+    if (!dateStr) return null;
+    const target = new Date(dateStr);
+    if (isNaN(target.getTime())) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const targetDate = new Date(target);
+    targetDate.setHours(0, 0, 0, 0);
+
+    const diffDays = Math.round((targetDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+    const formattedDate = target.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+    if (diffDays < 0) {
+      return {
+        type: "overdue",
+        label: `Overdue (${formattedDate})`,
+        className: "bg-red-50 border-red-200 text-red-700 font-bold",
+      };
+    }
+    if (diffDays === 0) {
+      return {
+        type: "today",
+        label: `Due Today (${formattedDate})`,
+        className: "bg-amber-50 border-amber-200 text-amber-800 font-bold animate-pulse",
+      };
+    }
+    return {
+      type: "scheduled",
+      label: `Follow-up: ${formattedDate}`,
+      className: "bg-blue-50 border-blue-200 text-blue-800 font-medium",
+    };
+  };
+
+
   return (
     <div className="flex flex-col gap-5 animate-fade-in">
       {/* ─── Toolbar ───────────────────────────────────────────── */}
@@ -406,7 +460,28 @@ export default function ExcelLeadsSheet() {
             <Mail size={13} />
             {filterPendingEmails ? "Showing Pending Emails" : "Filter Pending Emails"}
           </button>
+
+          {/* Follow Up Filter */}
+          <div className="flex items-center gap-1.5">
+            <Calendar size={13} className="text-[var(--color-text-tertiary)]" />
+            <select
+              value={filterFollowUp}
+              onChange={(e) => setFilterFollowUp(e.target.value as any)}
+              className={`input py-2 border text-xs font-semibold ${
+                filterFollowUp !== "all"
+                  ? "border-[var(--color-accent)] bg-[var(--color-accent-light)] text-[var(--color-accent)]"
+                  : "bg-[var(--color-bg-primary)] border-[var(--color-border)] text-[var(--color-text-secondary)]"
+              }`}
+            >
+              <option value="all">All Follow-ups</option>
+              <option value="today">🎯 Due Today</option>
+              <option value="overdue">🚨 Overdue</option>
+              <option value="scheduled">📅 Scheduled</option>
+              <option value="set">Dates Set</option>
+            </select>
+          </div>
         </div>
+
 
         <div className="flex gap-2 items-center">
           <button className="btn-secondary py-2" onClick={() => mutate()}>
@@ -649,12 +724,13 @@ export default function ExcelLeadsSheet() {
                 <th className="min-w-[160px] text-left text-blue-600 font-bold">1. Comment</th>
                 <th className="min-w-[200px] text-left text-blue-600 font-bold">2. Remark</th>
                 <th className="min-w-[140px] text-center text-blue-600 font-bold">3. Email Request</th>
+                <th className="min-w-[170px] text-center text-blue-600 font-bold">4. Follow Up</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={13} className="text-center py-16 text-[var(--color-text-tertiary)] font-medium">
+                  <td colSpan={14} className="text-center py-16 text-[var(--color-text-tertiary)] font-medium">
                     <RefreshCw size={18} className="inline animate-spin mr-2" /> Loading leads…
                   </td>
                 </tr>
@@ -662,7 +738,7 @@ export default function ExcelLeadsSheet() {
 
               {!isLoading && filteredRows.length === 0 && (
                 <tr>
-                  <td colSpan={13} className="text-center py-16 text-[var(--color-text-tertiary)] font-medium">
+                  <td colSpan={14} className="text-center py-16 text-[var(--color-text-tertiary)] font-medium">
                     <div className="flex flex-col items-center gap-2">
                       <FileSpreadsheet size={32} className="text-[var(--color-border)]" />
                       {isCaller
@@ -820,6 +896,64 @@ export default function ExcelLeadsSheet() {
                         )}
                       </div>
                     </td>
+
+                    {/* Cell 4: Follow Up Date Picker */}
+                    <td className="text-center p-1.5 min-w-[170px]">
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center gap-1 w-full justify-center">
+                          <input
+                            type="date"
+                            value={r.follow_up_date ? new Date(r.follow_up_date).toISOString().slice(0, 10) : ""}
+                            disabled={updatingId === r.id}
+                            onChange={(e) => handleUpdate(r.id, { followUpDate: e.target.value || null })}
+                            className="bg-[var(--color-bg-primary)]/60 border border-[var(--color-border)] focus:bg-white focus:border-[var(--color-accent)] rounded-lg py-1 px-2 text-[11px] font-semibold text-[var(--color-text-primary)] cursor-pointer outline-none transition-all shadow-sm"
+                          />
+                          {r.follow_up_date && (
+                            <button
+                              onClick={() => handleUpdate(r.id, { followUpDate: null })}
+                              title="Clear Follow-up Date"
+                              className="p-1 rounded hover:bg-red-100 text-red-500 transition-colors"
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Quick Presets */}
+                        <div className="flex gap-1 text-[9px]">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdate(r.id, { followUpDate: new Date().toISOString().slice(0, 10) })}
+                            className="px-1.5 py-0.5 rounded bg-gray-100 hover:bg-[var(--color-accent-light)] hover:text-[var(--color-accent)] text-[var(--color-text-secondary)] font-medium transition-colors cursor-pointer"
+                          >
+                            Today
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const tom = new Date();
+                              tom.setDate(tom.getDate() + 1);
+                              handleUpdate(r.id, { followUpDate: tom.toISOString().slice(0, 10) });
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-gray-100 hover:bg-[var(--color-accent-light)] hover:text-[var(--color-accent)] text-[var(--color-text-secondary)] font-medium transition-colors cursor-pointer"
+                          >
+                            Tomorrow
+                          </button>
+                        </div>
+
+                        {/* Status Badge */}
+                        {r.follow_up_date && (() => {
+                          const badge = formatFollowUpBadge(r.follow_up_date);
+                          if (!badge) return null;
+                          return (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] border shadow-xs ${badge.className}`}>
+                              <Calendar size={10} /> {badge.label}
+                            </span>
+                          );
+                        })()}
+                      </div>
+                    </td>
+
                   </tr>
                 );
               })}
