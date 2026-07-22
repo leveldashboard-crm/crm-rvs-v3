@@ -195,6 +195,7 @@ ALTER TABLE task_phases ADD COLUMN IF NOT EXISTS is_completed BOOLEAN DEFAULT fa
 CREATE TABLE IF NOT EXISTS roster (
     id SERIAL PRIMARY KEY,
     event_id TEXT DEFAULT 'bharat_buildcon_2026',
+    week TEXT,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     user_name TEXT NOT NULL,
     sector TEXT NOT NULL,
@@ -207,6 +208,7 @@ CREATE TABLE IF NOT EXISTS roster (
 );
 
 -- Ensure roster columns exist on existing databases
+ALTER TABLE roster ADD COLUMN IF NOT EXISTS week TEXT;
 ALTER TABLE roster ADD COLUMN IF NOT EXISTS shift_start TIME;
 ALTER TABLE roster ADD COLUMN IF NOT EXISTS shift_end TIME;
 ALTER TABLE roster ADD COLUMN IF NOT EXISTS effective_date DATE;
@@ -218,6 +220,7 @@ ALTER TABLE roster ADD COLUMN IF NOT EXISTS notes TEXT;
 CREATE TABLE IF NOT EXISTS targets (
     id SERIAL PRIMARY KEY,
     event_id TEXT DEFAULT 'bharat_buildcon_2026',
+    period TEXT,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     user_name TEXT NOT NULL,
     period_type TEXT NOT NULL, -- 3m | 6m | 9m
@@ -230,6 +233,7 @@ CREATE TABLE IF NOT EXISTS targets (
 );
 
 -- Ensure targets columns exist on existing databases
+ALTER TABLE targets ADD COLUMN IF NOT EXISTS period TEXT;
 ALTER TABLE targets ADD COLUMN IF NOT EXISTS period_type TEXT;
 ALTER TABLE targets ADD COLUMN IF NOT EXISTS calls_target INTEGER DEFAULT 0;
 ALTER TABLE targets ADD COLUMN IF NOT EXISTS conversions_target INTEGER DEFAULT 0;
