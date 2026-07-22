@@ -70,9 +70,12 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
     card?: boolean;
     itinerary?: boolean;
     voucher?: boolean;
+    sentByName?: string;
+    sentByEmail?: string;
     status?: string;
     error?: string;
   }
+
 
   const [historyLogs, setHistoryLogs] = useState<MailHistoryRow[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -1140,6 +1143,7 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
                       <th>Sent On</th>
                       <th>Recipient</th>
                       <th>Subject</th>
+                      <th>Sent By (Sender)</th>
                       <th>Draft</th>
                       <th className="text-center">Attachments</th>
                       <th>Status</th>
@@ -1154,6 +1158,10 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
                           <code className="text-[10px] text-[var(--color-text-secondary)]">{l.email}</code>
                         </td>
                         <td className="text-xs font-medium max-w-[200px] truncate" title={l.subject}>{l.subject}</td>
+                        <td>
+                          <div className="font-bold text-xs text-[var(--color-accent)]">{l.sentByName || "System"}</div>
+                          {l.sentByEmail && <code className="text-[10px] text-[var(--color-text-tertiary)]">{l.sentByEmail}</code>}
+                        </td>
                         <td className="text-xs text-[var(--color-text-secondary)]">{l.draft || "—"}</td>
                         <td className="text-center text-xs">
                           <span className="inline-flex gap-1">
@@ -1178,6 +1186,7 @@ export default function MailerPortal({ enabled, mode, webAppUrl }: MailerPortalP
                     ))}
                   </tbody>
                 </table>
+
               </div>
             )}
           </div>

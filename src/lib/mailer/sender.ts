@@ -101,7 +101,7 @@ export async function verifySmtp(customSettings?: {
 }
 
 // ─── Send One Email ───────────────────────────────────────────────────────────
-export async function sendOne(payload: SendPayload) {
+export async function sendOne(payload: SendPayload, senderInfo?: { name?: string; email?: string }) {
   await ensureMailerSchema();
   const settings = await loadMailerSettings();
 
@@ -176,6 +176,8 @@ export async function sendOne(payload: SendPayload) {
       hasItinerary: !!(payload.sendItinerary && payload.itineraryFileId),
       hasVoucher: !!(payload.sendVoucher && payload.voucherFileId),
       customAttachments: payload.customAttachments?.map(a => a.fileName).join(", ") || "",
+      sentByName: senderInfo?.name || "System User",
+      sentByEmail: senderInfo?.email || "",
       status: "success",
       error: "",
     });
@@ -192,6 +194,8 @@ export async function sendOne(payload: SendPayload) {
       draftName: payload.draftName,
       hasLetter: false, hasCard: false, hasItinerary: false, hasVoucher: false,
       customAttachments: "",
+      sentByName: senderInfo?.name || "System User",
+      sentByEmail: senderInfo?.email || "",
       status: "error",
       error: errMsg,
     }).catch(() => {});
@@ -211,6 +215,8 @@ interface SendLogEntry {
   hasItinerary: boolean;
   hasVoucher: boolean;
   customAttachments: string;
+  sentByName?: string;
+  sentByEmail?: string;
   status: string;
   error: string;
 }
@@ -218,11 +224,11 @@ interface SendLogEntry {
 async function logSend(entry: SendLogEntry) {
   await db.execute(sql`
     INSERT INTO mailer_send_log
-      (recipient, email, subject, draft_name, has_letter, has_card, has_itinerary, has_voucher, custom_attachments, status, error)
+      (recipient, email, subject, draft_name, has_letter, has_card, has_itinerary, has_voucher, custom_attachments, sent_by_name, sent_by_email, status, error)
     VALUES
       (${entry.recipient}, ${entry.email}, ${entry.subject}, ${entry.draftName},
        ${entry.hasLetter}, ${entry.hasCard}, ${entry.hasItinerary}, ${entry.hasVoucher},
-       ${entry.customAttachments}, ${entry.status}, ${entry.error})
+       ${entry.customAttachments}, ${entry.sentByName || "User"}, ${entry.sentByEmail || ""}, ${entry.status}, ${entry.error})
   `);
 }
 
@@ -234,7 +240,7 @@ export async function getSendLog() {
       SELECT
         sent_at, recipient, email, subject, draft_name,
         has_letter, has_card, has_itinerary, has_voucher,
-        custom_attachments, status, error
+        custom_attachments, sent_by_name, sent_by_email, status, error
       FROM mailer_send_log
       ORDER BY id DESC
       LIMIT 200
@@ -252,6 +258,8 @@ export async function getSendLog() {
       itinerary: !!r.has_itinerary,
       voucher: !!r.has_voucher,
       customAttachments: String(r.custom_attachments || ""),
+      sentByName: String(r.sent_by_name || "User"),
+      sentByEmail: String(r.sent_by_email || ""),
       status: String(r.status || "success"),
       error: String(r.error || ""),
     }));
@@ -260,6 +268,7 @@ export async function getSendLog() {
     return { success: false, error: String(e) };
   }
 }
+
 
 // ─── Get Sheet URL (not applicable — return dashboard link) ──────────────────
 export function getSheetUrl() {

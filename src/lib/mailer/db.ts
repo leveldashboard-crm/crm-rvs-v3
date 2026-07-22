@@ -32,10 +32,14 @@ export async function ensureMailerSchema() {
       has_itinerary BOOLEAN DEFAULT false,
       has_voucher BOOLEAN DEFAULT false,
       custom_attachments TEXT,
+      sent_by_name TEXT,
+      sent_by_email TEXT,
       status TEXT DEFAULT 'success',
       error TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`,
+    `ALTER TABLE mailer_send_log ADD COLUMN IF NOT EXISTS sent_by_name TEXT`,
+    `ALTER TABLE mailer_send_log ADD COLUMN IF NOT EXISTS sent_by_email TEXT`,
     // Mailer File Index (stores indexed Drive PDF files per type)
     `CREATE TABLE IF NOT EXISTS mailer_file_index (
       id SERIAL PRIMARY KEY,
@@ -57,6 +61,7 @@ export async function ensureMailerSchema() {
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_folder_itinerary TEXT`,
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_folder_voucher TEXT`,
     `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS mailer_drive_api_key TEXT`,
+
   ];
   for (const stmt of stmts) {
     try { await db.execute(sql.raw(stmt)); } catch { /* already exists */ }

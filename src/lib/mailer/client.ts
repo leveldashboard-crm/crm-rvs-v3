@@ -10,7 +10,8 @@ import type { SendPayload } from "./types";
 
 export async function callMailer<T = unknown>(
   fn: string,
-  args: unknown[] = []
+  args: unknown[] = [],
+  senderInfo?: { name?: string; email?: string }
 ): Promise<{ success: boolean; result?: T; error?: string; [key: string]: unknown }> {
   switch (fn) {
     case "verifySmtp":
@@ -44,7 +45,7 @@ export async function callMailer<T = unknown>(
       return deleteDraft(String(args[0] || "")) as Promise<{ success: boolean; result?: T; [key: string]: unknown }>;
 
     case "sendOne":
-      return sendOne(args[0] as SendPayload) as Promise<{ success: boolean; result?: T; [key: string]: unknown }>;
+      return sendOne(args[0] as SendPayload, senderInfo) as Promise<{ success: boolean; result?: T; [key: string]: unknown }>;
 
     case "getSendLog":
       return getSendLog() as Promise<{ success: boolean; result?: T; [key: string]: unknown }>;
@@ -59,3 +60,4 @@ export async function callMailer<T = unknown>(
       return { success: false, error: `Unknown mailer function: ${fn}` };
   }
 }
+

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { sql } from "drizzle-orm";
 import MailerPortal from "@/components/mailer/MailerPortal";
 import { redirect } from "next/navigation";
+import { normalizeRole } from "@/lib/rbac";
 
 export const metadata = {
   title: "Concierge Mailer — DelegateConnect",
@@ -13,13 +14,17 @@ export default async function Page() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const role = (session?.user as { role?: string } | undefined)?.role ?? "user";
-  if (role !== "admin") {
+  const rawRole = (session?.user as { role?: string } | undefined)?.role ?? "user";
+  const role = normalizeRole(rawRole);
+
+  // Allow master_admin, regional_admin, and team_lead
+  if (role !== "master_admin" && role !== "regional_admin" && role !== "team_lead") {
     redirect("/");
   }
 
-  // Load mailer settings — check if SMTP is configured (enabled means smtp_user is set)
-  let mailerEnabled = false;
+
+  // Load mailer settings — default enabled to true for seamless concierge mailer access
+  let mailerEnabled = true;
   let mailerMode = "api";
 
   try {
@@ -37,24 +42,14 @@ export default async function Page() {
         mailer_mode: string | null;
         mailer_smtp_user: string | null;
       };
-      mailerEnabled = !!row.mailer_enabled;
+      // Keep enabled if true or if default
+      if (row.mailer_enabled !== null && row.mailer_enabled !== undefined) {
+        mailerEnabled = !!row.mailer_enabled;
+      }
       mailerMode = row.mailer_mode || "api";
     }
   } catch {
-    // mailer_smtp_user column may not exist yet — treat as not configured
-    try {
-      const result2 = await db.execute(sql`
-        SELECT mailer_enabled, mailer_mode FROM app_settings WHERE id = 1 LIMIT 1
-      `);
-      const rows2 = Array.from(result2);
-      if (rows2.length > 0) {
-        const row2 = rows2[0] as { mailer_enabled: boolean | null; mailer_mode: string | null };
-        mailerEnabled = !!row2.mailer_enabled;
-        mailerMode = row2.mailer_mode || "api";
-      }
-    } catch {
-      // DB not ready yet
-    }
+    // Fallback gracefully
   }
 
   return (
@@ -65,3 +60,4 @@ export default async function Page() {
     />
   );
 }
+
